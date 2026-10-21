@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube → Google Vids Rebuild Tool</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-1: #0b0e17;
+      --bg-2: #111827;
+      --glass: rgba(255,255,255,0.04);
+      --glass-border: rgba(255,255,255,0.08);
+      --accent: #6366f1;
+      --accent-glow: rgba(99,102,241,0.35);
+      --accent-2: #a78bfa;
+      --text: #e2e8f0;
+      --text-dim: #94a3b8;
+      --success: #34d399;
+      --danger: #f87171;
+      --radius: 14px;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg-1);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Animated gradient background */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 600px 400px at 20% 20%, rgba(99,102,241,0.12), transparent),
+        radial-gradient(ellipse 500px 350px at 80% 70%, rgba(167,139,250,0.08), transparent);
+      z-index: -1;
+      animation: bgShift 12s ease-in-out infinite alternate;
+    }
+    @keyframes bgShift {
+      0%   { opacity: 0.7; }
+      100% { opacity: 1; }
+    }
+
+    .app { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    /* Header */
+    .header { text-align: center; margin-bottom: 2.5rem; }
+    .header h1 {
+      font-size: 2rem; font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header p { color: var(--text-dim); margin-top: 0.4rem; font-size: 0.95rem; }
+
+    /* Cards */
+    .card {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      backdrop-filter: blur(12px);
+      transition: border-color 0.3s;
+    }
+    .card:hover { border-color: rgba(255,255,255,0.14); }
+    .card h2 {
+      font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+
+    /* Form */
+    label { display: block; font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.35rem; font-weight: 500; }
+    input[type="text"], input[type="url"] {
+      width: 100%; padding: 0.7rem 1rem; font-size: 0.95rem;
+      background: rgba(0,0,0,0.35); border: 1px solid var(--glass-border);
+      border-radius: 10px; color: var(--text); outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .form-row { display: flex; gap: 1rem; margin-bottom: 1rem; }
+    .form-row > div { flex: 1; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+      padding: 0.75rem 1.5rem; font-size: 0.95rem; font-weight: 600;
+      border: none; border-radius: 10px; cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.25s;
+      color: #fff;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+    .btn-primary:hover { box-shadow: 0 6px 28px rgba(99,102,241,0.5); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-sm { padding: 0.45rem 0.9rem; font-size: 0.82rem; border-radius: 8px; }
+    .btn-outline {
+      background: transparent; border: 1px solid var(--glass-border); color: var(--text-dim);
+    }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-copy { background: rgba(99,102,241,0.15); color: var(--accent); }
+    .btn-copy:hover { background: rgba(99,102,241,0.25); }
+
+    /* Progress bar */
+    .progress-bar { width: 100%; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; margin: 1rem 0; overflow: hidden; display: none; }
+    .progress-bar.active { display: block; }
+    .progress-bar .fill {
+      height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      border-radius: 2px; animation: progressAnim 2.5s ease-in-out infinite;
+    }
+    @keyframes progressAnim { 0% { width: 0; } 50% { width: 70%; } 100% { width: 100%; } }
+
+    /* Analysis stats */
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+    .stat-box {
+      background: rgba(0,0,0,0.25); border-radius: 10px; padding: 0.9rem;
+      text-align: center; border: 1px solid var(--glass-border);
+    }
+    .stat-box .val { font-size: 1.4rem; font-weight: 700; color: var(--accent-2); }
+    .stat-box .lbl { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem; }
+
+    /* Keywords */
+    .keywords { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+    .kw {
+      background: rgba(99,102,241,0.12); color: var(--accent-2);
+      padding: 0.3rem 0.7rem; border-radius: 20px; font-size: 0.8rem; font-weight: 500;
+    }
+
+    /* Output sections */
+    .output-section { display: none; }
+    .output-section.visible { display: block; }
+
+    .script-block, .prompt-block {
+      background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border);
+      border-radius: 10px; padding: 1.25rem; margin-top: 0.75rem;
+      white-space: pre-wrap; font-size: 0.88rem; line-height: 1.65;
+      max-height: 500px; overflow-y: auto; position: relative;
+    }
+    .prompt-block { background: rgba(99,102,241,0.06); border-color: rgba(99,102,241,0.2); }
+
+    .copy-bar {
+      display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.6rem;
+    }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .tab {
+      padding: 0.5rem 1.1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 500;
+      cursor: pointer; background: transparent; border: 1px solid var(--glass-border);
+      color: var(--text-dim); transition: all 0.2s;
+    }
+    .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .tab:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .form-row { flex-direction: column; }
+      .header h1 { font-size: 1.5rem; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 2rem; right: 2rem;
+      background: var(--success); color: #000; font-weight: 600;
+      padding: 0.7rem 1.2rem; border-radius: 10px; font-size: 0.85rem;
+      opacity: 0; transform: translateY(10px);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none; z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>🎬 YouTube → Google Vids Rebuild</h1>
+    <p>Analysiere ein YouTube-Video und erstelle daraus ein Szenen-Skript + Google Vids Prompt</p>
+  </div>
+
+  <!-- Input Card -->
+  <div class="card">
+    <h2>📥 Eingabe</h2>
+    <div class="form-row">
+      <div>
+        <label for="urlInput">YouTube-URL oder Video-ID</label>
+        <input type="url" id="urlInput" placeholder="https://www.youtube.com/watch?v=..." />
+      </div>
+      <div>
+        <label for="keywordInput">Dein Thema / Keyword</label>
+        <input type="text" id="keywordInput" placeholder="z. B. Gaming-Maus Review" />
+      </div>
+    </div>
+    <button class="btn btn-primary" id="rebuildBtn" style="width:100%;">
+      <span id="btnText">🚀 Analysieren & Skript generieren</span>
+    </button>
+    <div class="progress-bar" id="progressBar"><div class="fill"></div></div>
+  </div>
+
+  <!-- Output -->
+  <div class="output-section" id="outputSection">
+
+    <!-- Stats -->
+    <div class="card">
+      <h2>📊 Analyse-Ergebnis</h2>
+      <div class="stats">
+        <div class="stat-box"><div class="val" id="statDuration">–</div><div class="lbl">Dauer</div></div>
+        <div class="stat-box"><div class="val" id="statScenes">–</div><div class="lbl">Szenen</div></div>
+        <div class="stat-box"><div class="val" id="statPacing">–</div><div class="lbl">Pacing</div></div>
+        <div class="stat-box"><div class="val" id="statKeyword">–</div><div class="lbl">Dein Thema</div></div>
+      </div>
+      <label>Erkannte Schlüsselwörter</label>
+      <div class="keywords" id="keywordsList"></div>
+    </div>
+
+    <!-- Tabs: Script / Prompt -->
+    <div class="card">
+      <div class="tabs">
+        <div class="tab active" data-tab="script">📝 Szenen-Skript</div>
+        <div class="tab" data-tab="prompt">📋 Google Vids Prompt</div>
+      </div>
+
+      <div class="tab-panel active" id="panel-script">
+        <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem;">Szene-für-Szene Vorlage – fülle die Platzhalter mit deinem Inhalt.</p>
+        <div class="script-block" id="scriptOutput"></div>
+        <div class="copy-bar">
+          <button class="btn btn-sm btn-copy" onclick="copyText('scriptOutput')">📋 Kopieren</button>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-prompt">
+        <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem;">Kopiere diesen Prompt direkt in Google Vids → „Erstellen".</p>
+        <div class="prompt-block" id="promptOutput"></div>
+        <div class="copy-bar">
+          <button class="btn btn-sm btn-copy" onclick="copyText('promptOutput')">📋 Kopieren</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast">✅ In Zwischenablage kopiert!</div>
+
+<script>
+  const btn = document.getElementById('rebuildBtn');
+  const btnText = document.getElementById('btnText');
+  const urlInput = document.getElementById('urlInput');
+  const keywordInput = document.getElementById('keywordInput');
+  const progressBar = document.getElementById('progressBar');
+  const outputSection = document.getElementById('outputSection');
+
+  // Tabs
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Copy to clipboard
+  function copyText(id) {
+    const text = document.getElementById(id).textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const toast = document.getElementById('toast');
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    });
+  }
+
+  // Format seconds → mm:ss
+  function fmt(sec) {
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
+  // Main action
+  btn.addEventListener('click', async () => {
+    const url = urlInput.value.trim();
+    const keyword = keywordInput.value.trim();
+    if (!url) { alert('Bitte eine YouTube-URL eingeben'); return; }
+    if (!keyword) { alert('Bitte ein Thema/Keyword eingeben'); return; }
+
+    btn.disabled = true;
+    btnText.textContent = '⏳ Analysiere …';
+    progressBar.classList.add('active');
+    outputSection.classList.remove('visible');
+
+    try {
+      const resp = await fetch('/rebuild', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, keyword, language: 'de' }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.detail || `Fehler ${resp.status}`);
+      }
+
+      const data = await resp.json();
+
+      // Stats
+      document.getElementById('statDuration').textContent = fmt(data.analysis.duration);
+      document.getElementById('statScenes').textContent = data.analysis.scene_count;
+      document.getElementById('statPacing').textContent = data.analysis.pacing;
+      document.getElementById('statKeyword').textContent = data.keyword;
+
+      // Keywords
+      const kwList = document.getElementById('keywordsList');
+      kwList.innerHTML = '';
+      data.analysis.keywords.forEach(kw => {
+        const span = document.createElement('span');
+        span.className = 'kw';
+        span.textContent = kw;
+        kwList.appendChild(span);
+      });
+
+      // Script & Prompt
+      document.getElementById('scriptOutput').textContent = data.scene_script;
+      document.getElementById('promptOutput').textContent = data.google_vids_prompt;
+
+      outputSection.classList.add('visible');
+
+    } catch (e) {
+      alert('Fehler: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btnText.textContent = '🚀 Analysieren & Skript generieren';
+      progressBar.classList.remove('active');
+    }
+  });
+</script>
+
+</body>
+</html>
