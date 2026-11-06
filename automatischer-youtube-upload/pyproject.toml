@@ -1,5 +1,5 @@
 [project]
-name = "youtube-upload"
+name = "automatischer-youtube-upload"
 version = "1.0.0"
 description = "Videos im Hintergrund auf YouTube hochladen (Titel, Beschreibung, Tags, Thumbnail, Nicht gelistet)"
 requires-python = ">=3.10"

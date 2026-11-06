@@ -1,4 +1,4 @@
-"""YouTube-Upload im Hintergrund – Kern-Logik und Kommandozeile.
+"""Automatischer YouTube-Upload – Kern-Logik und Kommandozeile.
 
 Beispiele:
   uv run youtube_upload.py --video vortrag.mp4 --titel "Netzwerk & Backup" --beschreibung-datei text.txt --tags "VLAN, RAID 6"

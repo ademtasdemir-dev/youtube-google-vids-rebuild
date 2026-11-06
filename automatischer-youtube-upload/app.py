@@ -1,4 +1,4 @@
-"""YouTube-Upload – kleine Oberfläche. Start: Doppelklick auf start.bat"""
+"""Automatischer YouTube-Upload – Oberfläche. Start: Doppelklick auf start.bat"""
 from __future__ import annotations
 
 import json
@@ -18,7 +18,7 @@ BG, FG, AKZENT, FELD = "#f4f6f8", "#17202a", "#1f6f8b", "#ffffff"
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("YouTube-Upload")
+        self.title("Automatischer YouTube-Upload")
         self.geometry("760x780")
         self.minsize(640, 640)
         self.configure(bg=BG)
@@ -51,7 +51,7 @@ class App(tk.Tk):
         r = ttk.Frame(self, padding=18)
         r.pack(fill="both", expand=True)
         r.columnconfigure(1, weight=1)
-        ttk.Label(r, text="YouTube-Upload", style="Kopf.TLabel").grid(row=0, column=0, columnspan=3, sticky="w")
+        ttk.Label(r, text="Automatischer YouTube-Upload", style="Kopf.TLabel").grid(row=0, column=0, columnspan=3, sticky="w")
         self.status_anmeldung = ttk.Label(r, text="", style="Klein.TLabel")
         self.status_anmeldung.grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 10))
         ttk.Button(r, text="Anmelden", command=self.anmelden).grid(row=1, column=2, sticky="e", pady=(0, 10))

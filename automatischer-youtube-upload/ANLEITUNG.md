@@ -1,4 +1,4 @@
-# YouTube-Upload – Anleitung
+# Automatischer YouTube-Upload – Anleitung
 
 Lädt Videos ohne Browser auf YouTube hoch: Titel, Beschreibung, Tags, Thumbnail, Sichtbarkeit (Standard: **Nicht gelistet**).
 Kostenlos über die offizielle YouTube Data API.
@@ -7,10 +7,10 @@ Kostenlos über die offizielle YouTube Data API.
 
 ### 1. Zugang bei Google anlegen
 1. Öffne <https://console.cloud.google.com> und melde dich mit dem **Google-Konto deines YouTube-Kanals** an.
-2. Oben links auf die Projektauswahl → **Neues Projekt** → Name: `YouTube Upload` → **Erstellen**.
+2. Oben links auf die Projektauswahl → **Neues Projekt** → Name: `Automatischer YouTube-Upload` → **Erstellen**.
 3. Links **APIs & Dienste → Bibliothek** → nach **YouTube Data API v3** suchen → **Aktivieren**.
 4. Links **APIs & Dienste → OAuth-Zustimmungsbildschirm** (heißt teils auch „Google Auth Platform“):
-   - App-Name: `YouTube Upload`, Support-E-Mail: deine Adresse.
+   - App-Name: `Automatischer YouTube-Upload`, Support-E-Mail: deine Adresse.
    - Zielgruppe: **Extern**.
    - Unter **Zielgruppe / Testnutzer** dein Google-Konto eintragen.
    - Danach **App veröffentlichen** („In Produktion“). Sonst läuft die Anmeldung alle 7 Tage ab.
@@ -18,9 +18,9 @@ Kostenlos über die offizielle YouTube Data API.
 6. **JSON herunterladen**, die Datei in diesen Ordner legen und in **`client_secret.json`** umbenennen.
 
 ### 2. Einmal anmelden
-1. Doppelklick auf **`start.bat`** → das Fenster „YouTube-Upload“ öffnet sich.
+1. Doppelklick auf **`start.bat`** → das Fenster „Automatischer YouTube-Upload“ öffnet sich.
 2. Oben rechts auf **Anmelden** → der Browser öffnet sich.
-3. Google zeigt „Google hat diese App nicht überprüft“ → **Erweitert → Weiter zu YouTube Upload** (das ist deine eigene App).
+3. Google zeigt „Google hat diese App nicht überprüft“ → **Erweitert → Weiter zu Automatischer YouTube-Upload** (das ist deine eigene App).
 4. Zugriff erlauben. Danach steht oben „Angemeldet ✓“. Die Anmeldung liegt in `token.json` und bleibt gespeichert.
 
 > `client_secret.json` und `token.json` sind dein Schlüssel zum Kanal: nicht weitergeben, nicht auf GitHub hochladen (ist per `.gitignore` gesperrt).
