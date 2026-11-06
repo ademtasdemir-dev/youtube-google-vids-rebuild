@@ -3,6 +3,12 @@
 Lädt Videos ohne Browser auf YouTube hoch: Titel, Beschreibung, Tags, Thumbnail, Sichtbarkeit (Standard: **Nicht gelistet**).
 Kostenlos über die offizielle YouTube Data API.
 
+## Stand bei Adem (erledigt am 06.11.2026)
+- Google-Projekt „Automatischer YouTube-Upload“ (metal-sky-513913-j8) im Konto tadaada89@gmail.com, YouTube Data API v3 aktiv
+- App-Status **In Produktion** → die Anmeldung läuft nicht mehr nach 7 Tagen ab
+- Startseite, Datenschutzerklärung, Nutzungsbedingungen: https://ademtasdemir-dev.github.io/automatischer-youtube-upload/
+- Bei der Anmeldung zeigt Google „App nicht überprüft“ → **Erweitert → … öffnen (unsicher)** → Weiter. Das ist normal für eine eigene, nicht geprüfte App.
+
 ## Einmalige Einrichtung (ca. 10 Minuten)
 
 ### 1. Zugang bei Google anlegen
