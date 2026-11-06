@@ -168,17 +168,31 @@ def hochladen(paket: Paket, dienst=None, fortschritt: Optional[Callable[[float],
     video_id = antwort["id"]
     link = f"https://youtu.be/{video_id}"
     log(f"Video hochgeladen: {link}")
+    _schliessen(media)  # Windows: offene Datei kann sonst nicht gelöscht werden
     if paket.thumbnail:
+        bild = MediaFileUpload(paket.thumbnail)
         try:
-            dienst.thumbnails().set(videoId=video_id, media_body=MediaFileUpload(paket.thumbnail)).execute()
+            dienst.thumbnails().set(videoId=video_id, media_body=bild).execute()
             log("Thumbnail gesetzt.")
         except HttpError as e:
             log("Achtung: Thumbnail konnte nicht gesetzt werden – " + _fehlertext(e) + " Das Video ist trotzdem oben.")
+        finally:
+            _schliessen(bild)
     try:
         aufraeumen(paket, log=log)
     except Exception as e:  # Aufräumen darf den erfolgreichen Upload nie zum Fehler machen
         log(f"Aufräumen teilweise fehlgeschlagen: {e}")
     return link
+
+
+def _schliessen(media) -> None:
+    """Schließt die Datei, die MediaFileUpload offen hält."""
+    fd = getattr(media, "_fd", None)
+    try:
+        if fd is not None:
+            fd.close()
+    except Exception:
+        pass
 
 
 def aufraeumen(paket: Paket, log: Callable[[str], None] = print) -> list[str]:
@@ -220,7 +234,11 @@ def aufraeumen(paket: Paket, log: Callable[[str], None] = print) -> list[str]:
     if paket.arbeitsordner:
         a = Path(paket.arbeitsordner).resolve()
         if a.is_dir() and im(a, arbeit) and a != arbeit:
-            shutil.rmtree(a, ignore_errors=True); geloescht.append(str(a))
+            shutil.rmtree(a, ignore_errors=True)
+            if a.exists():
+                log(f"Konnte Arbeitsordner nicht ganz löschen: {a}")
+            else:
+                geloescht.append(str(a))
         elif a.exists():
             log(f"Arbeitsordner nicht gelöscht (liegt nicht in {ARBEIT}): {a}")
     for g in geloescht:
