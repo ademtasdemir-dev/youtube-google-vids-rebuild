@@ -1,0 +1,6 @@
+client_secret*.json
+token.json
+warteschlange/
+__pycache__/
+.venv/
+uv.lock

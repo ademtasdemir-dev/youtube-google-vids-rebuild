@@ -1,0 +1,9 @@
+[project]
+name = "youtube-upload"
+version = "1.0.0"
+description = "Videos im Hintergrund auf YouTube hochladen (Titel, Beschreibung, Tags, Thumbnail, Nicht gelistet)"
+requires-python = ">=3.10"
+dependencies = [
+    "google-api-python-client>=2.100",
+    "google-auth-oauthlib>=1.2",
+]
