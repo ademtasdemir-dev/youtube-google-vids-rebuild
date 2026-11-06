@@ -54,10 +54,22 @@ uv run youtube_upload.py --paket paket.json --pruefen      (nur prüfen, nichts 
   "beschreibung": "Text mit Kapiteln\n0:00 Start\n0:38 Teil 2",
   "tags": "Tag1, Tag2, Tag3",
   "sichtbarkeit": "nicht gelistet",
-  "fuer_kinder": false
+  "fuer_kinder": false,
+  "aufraeumen": true,
+  "loeschen": ["C:/Pfad/Folien.pptx", "C:/Pfad/Audio.wav"],
+  "arbeitsordner": "C:/Users/AdemTasdemir/Desktop/Automatischer-YouTube-Upload/arbeit/vortrag_7-12"
 }
 ```
 Pfade dürfen auch relativ zur paket.json sein.
+
+## Aufräumen nach dem Upload
+Ist `aufraeumen` an (Standard), löscht das Tool **erst nachdem YouTube den Upload bestätigt hat**:
+- das Video und das Thumbnail,
+- alle Dateien aus `loeschen` (z. B. PPTX, WAV),
+- den `arbeitsordner` komplett – aber nur, wenn er im Ordner `arbeit` dieses Tools liegt.
+
+Sicherheitsregeln: Schlägt der Upload fehl, wird nichts gelöscht. Ganze Ordner außerhalb von `arbeit` und die Programmdateien selbst werden nie gelöscht. In der App lässt sich das Aufräumen pro Upload per Haken abschalten, auf der Kommandozeile mit `--nicht-aufraeumen`.
+Gelöscht wird endgültig, nicht in den Papierkorb.
 
 ## Grenzen
 - Titel max. 100 Zeichen, Beschreibung max. 5000 Bytes, Tags zusammen max. 500 Zeichen, kein `<` oder `>` – wird vor dem Upload geprüft.

@@ -19,7 +19,7 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Automatischer YouTube-Upload")
-        self.geometry("760x780")
+        self.geometry("760x810")
         self.minsize(640, 640)
         self.configure(bg=BG)
         self.q: queue.Queue = queue.Queue()
@@ -58,6 +58,7 @@ class App(tk.Tk):
 
         self.video = tk.StringVar(); self.thumb = tk.StringVar(); self.titel = tk.StringVar()
         self.tags = tk.StringVar(); self.sicht = tk.StringVar(value="nicht gelistet"); self.kinder = tk.BooleanVar(value=False)
+        self.aufr = tk.BooleanVar(value=True); self.extra_loeschen: list[str] = []; self.arbeitsordner = None
 
         def zeile(i, text, var, knopf=None):
             ttk.Label(r, text=text).grid(row=i, column=0, sticky="w", pady=4, padx=(0, 10))
@@ -80,17 +81,18 @@ class App(tk.Tk):
         ttk.Label(r, text="Sichtbarkeit").grid(row=8, column=0, sticky="w", pady=4)
         ttk.Combobox(r, textvariable=self.sicht, values=["nicht gelistet", "privat", "öffentlich"], state="readonly", width=18).grid(row=8, column=1, sticky="w", pady=4)
         ttk.Checkbutton(r, text="Speziell für Kinder", variable=self.kinder).grid(row=9, column=1, sticky="w")
+        ttk.Checkbutton(r, text="Nach erfolgreichem Upload Video, Thumbnail und Arbeitsdateien löschen", variable=self.aufr).grid(row=10, column=1, columnspan=2, sticky="w")
 
-        leiste = ttk.Frame(r); leiste.grid(row=10, column=0, columnspan=3, sticky="ew", pady=(14, 6))
+        leiste = ttk.Frame(r); leiste.grid(row=11, column=0, columnspan=3, sticky="ew", pady=(14, 6))
         ttk.Button(leiste, text="Paket laden …", command=self.paket_laden).pack(side="left")
         ttk.Button(leiste, text="Prüfen", command=self.pruefen).pack(side="left", padx=8)
         self.knopf_upload = ttk.Button(leiste, text="Hochladen", style="Haupt.TButton", command=self.hochladen)
         self.knopf_upload.pack(side="right")
 
-        self.balken = ttk.Progressbar(r, maximum=100); self.balken.grid(row=11, column=0, columnspan=3, sticky="ew", pady=(4, 6))
+        self.balken = ttk.Progressbar(r, maximum=100); self.balken.grid(row=12, column=0, columnspan=3, sticky="ew", pady=(4, 6))
         self.log = tk.Text(r, height=7, wrap="word", font=("Consolas", 9), state="disabled", relief="solid", bd=1, bg="#fbfbfc")
-        self.log.grid(row=12, column=0, columnspan=3, sticky="nsew")
-        unten = ttk.Frame(r); unten.grid(row=13, column=0, columnspan=3, sticky="ew", pady=(8, 0))
+        self.log.grid(row=13, column=0, columnspan=3, sticky="nsew")
+        unten = ttk.Frame(r); unten.grid(row=14, column=0, columnspan=3, sticky="ew", pady=(8, 0))
         self.knopf_link = ttk.Button(unten, text="Link öffnen", command=lambda: webbrowser.open(self.link), state="disabled")
         self.knopf_link.pack(side="left")
         self.knopf_kopie = ttk.Button(unten, text="Link kopieren", command=self.link_kopieren, state="disabled")
@@ -127,7 +129,8 @@ class App(tk.Tk):
     def paket(self) -> yu.Paket:
         return yu.Paket(video=self.video.get().strip(), titel=self.titel.get(), beschreibung=self.beschreibung.get("1.0", "end-1c"),
                         tags=[t.strip() for t in self.tags.get().split(",") if t.strip()], thumbnail=self.thumb.get().strip() or None,
-                        sichtbarkeit=self.sicht.get(), fuer_kinder=self.kinder.get())
+                        sichtbarkeit=self.sicht.get(), fuer_kinder=self.kinder.get(), aufraeumen=self.aufr.get(),
+                        loeschen=list(self.extra_loeschen), arbeitsordner=self.arbeitsordner)
 
     # ---------- Aktionen ----------
     def video_waehlen(self):
@@ -148,6 +151,7 @@ class App(tk.Tk):
         self.video.set(p.video); self.thumb.set(p.thumbnail or ""); self.titel.set(p.titel)
         self.beschreibung.delete("1.0", "end"); self.beschreibung.insert("1.0", p.beschreibung)
         self.tags.set(", ".join(p.tags)); self.sicht.set(p.sichtbarkeit); self.kinder.set(p.fuer_kinder)
+        self.aufr.set(p.aufraeumen); self.extra_loeschen = list(p.loeschen); self.arbeitsordner = p.arbeitsordner
         self.schreiben(f"Paket geladen: {Path(pfad).name}")
 
     def pruefen(self):

@@ -1,6 +1,8 @@
 client_secret*.json
 token.json
 warteschlange/
+arbeit/*
+!arbeit/.gitkeep
 __pycache__/
 .venv/
 uv.lock

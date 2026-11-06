@@ -20,6 +20,7 @@ ORDNER = Path(__file__).resolve().parent
 CLIENT_SECRET = ORDNER / "client_secret.json"
 TOKEN = ORDNER / "token.json"
 WARTESCHLANGE = ORDNER / "warteschlange"
+ARBEIT = ORDNER / "arbeit"  # Arbeitsordner für Projekte; nur hier darf ganzer Ordner gelöscht werden
 ERLEDIGT = WARTESCHLANGE / "erledigt"
 FEHLER = WARTESCHLANGE / "fehler"
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
@@ -41,6 +42,9 @@ class Paket:
     sichtbarkeit: str = "nicht gelistet"
     fuer_kinder: bool = False
     kategorie: str = "22"  # YouTube-Standard "Menschen & Blogs"; 27 = Bildung
+    aufraeumen: bool = True  # nach erfolgreichem Upload Video, Thumbnail, loeschen-Liste und Arbeitsordner löschen
+    loeschen: list[str] = field(default_factory=list)  # weitere Dateien, z. B. PPTX, WAV
+    arbeitsordner: Optional[str] = None  # ganzer Ordner, muss im Ordner "arbeit" liegen
 
     @staticmethod
     def aus_dict(d: dict, basis: Path) -> "Paket":
@@ -55,7 +59,8 @@ class Paket:
         return Paket(video=pfad(d.get("video")) or "", titel=d.get("titel", ""), beschreibung=d.get("beschreibung", ""),
                      tags=[t for t in tags if t], thumbnail=pfad(d.get("thumbnail")),
                      sichtbarkeit=d.get("sichtbarkeit", "nicht gelistet"), fuer_kinder=bool(d.get("fuer_kinder", False)),
-                     kategorie=str(d.get("kategorie", "22")))
+                     kategorie=str(d.get("kategorie", "22")), aufraeumen=bool(d.get("aufraeumen", True)),
+                     loeschen=[pfad(x) for x in d.get("loeschen", []) if x], arbeitsordner=pfad(d.get("arbeitsordner")))
 
     def pruefen(self) -> list[str]:
         """Prüft alles vor dem Upload, gibt Liste mit Problemen zurück (leer = ok)."""
@@ -169,7 +174,58 @@ def hochladen(paket: Paket, dienst=None, fortschritt: Optional[Callable[[float],
             log("Thumbnail gesetzt.")
         except HttpError as e:
             log("Achtung: Thumbnail konnte nicht gesetzt werden – " + _fehlertext(e) + " Das Video ist trotzdem oben.")
+    try:
+        aufraeumen(paket, log=log)
+    except Exception as e:  # Aufräumen darf den erfolgreichen Upload nie zum Fehler machen
+        log(f"Aufräumen teilweise fehlgeschlagen: {e}")
     return link
+
+
+def aufraeumen(paket: Paket, log: Callable[[str], None] = print) -> list[str]:
+    """Löscht nach erfolgreichem Upload die Dateien des Pakets. Gibt die gelöschten Pfade zurück.
+    Sicherheitsregeln: einzelne Dateien nur, wenn sie ausdrücklich genannt sind; ganze Ordner nur innerhalb von 'arbeit';
+    nie etwas aus dem Programmordner selbst (außer im Ordner 'arbeit')."""
+    if not paket.aufraeumen:
+        return []
+    geloescht = []
+    arbeit = ARBEIT.resolve()
+    prog = ORDNER.resolve()
+
+    def im(p: Path, basis: Path) -> bool:
+        try:
+            p.relative_to(basis); return True
+        except ValueError:
+            return False
+
+    kandidaten = [paket.video, paket.thumbnail, *paket.loeschen]
+    for k in kandidaten:
+        if not k:
+            continue
+        p = Path(k).resolve()
+        if not p.exists():
+            continue
+        if p.is_dir():
+            if im(p, arbeit) and p != arbeit:
+                shutil.rmtree(p); geloescht.append(str(p))
+            else:
+                log(f"Nicht gelöscht (Ordner außerhalb von 'arbeit'): {p}")
+            continue
+        if im(p, prog) and not im(p, arbeit):
+            log(f"Nicht gelöscht (gehört zum Programm): {p}")
+            continue
+        try:
+            p.unlink(); geloescht.append(str(p))
+        except OSError as e:
+            log(f"Konnte nicht löschen: {p} ({e})")
+    if paket.arbeitsordner:
+        a = Path(paket.arbeitsordner).resolve()
+        if a.is_dir() and im(a, arbeit) and a != arbeit:
+            shutil.rmtree(a, ignore_errors=True); geloescht.append(str(a))
+        elif a.exists():
+            log(f"Arbeitsordner nicht gelöscht (liegt nicht in {ARBEIT}): {a}")
+    for g in geloescht:
+        log(f"Gelöscht: {g}")
+    return geloescht
 
 
 def _fehlertext(e) -> str:
@@ -227,6 +283,7 @@ def main(argv=None):
     ap.add_argument("--beschreibung-datei"); ap.add_argument("--tags", default="")
     ap.add_argument("--thumbnail"); ap.add_argument("--sichtbarkeit", default="nicht gelistet")
     ap.add_argument("--fuer-kinder", action="store_true"); ap.add_argument("--kategorie", default="22")
+    ap.add_argument("--nicht-aufraeumen", action="store_true", help="Video und Dateien nach dem Upload behalten")
     ap.add_argument("--paket", help="JSON-Datei mit allen Angaben")
     ap.add_argument("--warteschlange", action="store_true", help="Ordner 'warteschlange' dauerhaft überwachen")
     ap.add_argument("--anmelden", action="store_true", help="Nur anmelden (Browser öffnet sich einmal)")
@@ -246,6 +303,8 @@ def main(argv=None):
             paket = Paket(video=a.video or "", titel=a.titel or "", beschreibung=beschreibung,
                           tags=[t.strip() for t in a.tags.split(",") if t.strip()], thumbnail=a.thumbnail,
                           sichtbarkeit=a.sichtbarkeit, fuer_kinder=a.fuer_kinder, kategorie=a.kategorie)
+        if a.nicht_aufraeumen:
+            paket.aufraeumen = False
         if a.pruefen:
             pr = paket.pruefen(); print("Alles in Ordnung." if not pr else "\n".join(pr)); return 0 if not pr else 1
         def balken(x): print(f"\r{int(x*100):3d} %", end="", flush=True)

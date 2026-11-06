@@ -195,3 +195,66 @@ def test_beispielpaket_ist_gueltig():
     p = yu.Paket.aus_dict(d, Path("."))
     probleme = [x for x in p.pruefen() if "nicht gefunden" not in x]  # Pfade gibt es nur auf Adems PC
     assert probleme == [], probleme
+
+
+# ---------- Aufräumen nach erfolgreichem Upload ----------
+@pytest.fixture
+def umgebung(tmp_path, monkeypatch):
+    prog = tmp_path / "prog"; arbeit = prog / "arbeit"; arbeit.mkdir(parents=True)
+    monkeypatch.setattr(yu, "ORDNER", prog); monkeypatch.setattr(yu, "ARBEIT", arbeit)
+    projekt = arbeit / "vortrag_7-12"; projekt.mkdir()
+    v = projekt / "video.mp4"; v.write_bytes(b"\0" * 100)
+    t = projekt / "thumb.png"; t.write_bytes(b"\x89PNG" + b"\0" * 10)
+    pptx = tmp_path / "Folien.pptx"; pptx.write_bytes(b"pk")
+    wav = projekt / "audio.wav"; wav.write_bytes(b"RIFF")
+    return prog, arbeit, projekt, v, t, pptx, wav
+
+
+def test_aufraeumen_nach_erfolg(umgebung):
+    prog, arbeit, projekt, v, t, pptx, wav = umgebung
+    p = paket(v, t, loeschen=[str(pptx)], arbeitsordner=str(projekt))
+    d = FakeDienst([(None, {"id": "ok1"})])
+    yu.hochladen(p, dienst=d, log=lambda s: None)
+    assert not v.exists() and not t.exists() and not pptx.exists() and not projekt.exists() and not wav.exists()
+    assert arbeit.exists() and prog.exists()  # Arbeits- und Programmordner selbst bleiben
+
+
+def test_kein_aufraeumen_bei_fehler(umgebung):
+    prog, arbeit, projekt, v, t, pptx, wav = umgebung
+    p = paket(v, t, loeschen=[str(pptx)], arbeitsordner=str(projekt))
+    d = FakeDienst([http_error(403, "quotaExceeded")])
+    with pytest.raises(yu.UploadFehler):
+        yu.hochladen(p, dienst=d, log=lambda s: None)
+    assert v.exists() and t.exists() and pptx.exists() and projekt.exists()
+
+
+def test_aufraeumen_abschaltbar(umgebung):
+    prog, arbeit, projekt, v, t, pptx, wav = umgebung
+    p = paket(v, t, aufraeumen=False, loeschen=[str(pptx)], arbeitsordner=str(projekt))
+    yu.hochladen(p, dienst=FakeDienst([(None, {"id": "k"})]), log=lambda s: None)
+    assert v.exists() and pptx.exists() and projekt.exists()
+
+
+def test_ordner_ausserhalb_arbeit_bleibt(umgebung, tmp_path):
+    prog, arbeit, projekt, v, t, pptx, wav = umgebung
+    fremd = tmp_path / "Desktop"; fremd.mkdir(); (fremd / "wichtig.txt").write_text("x")
+    logs = []
+    p = paket(v, loeschen=[str(fremd)], arbeitsordner=str(fremd))
+    yu.hochladen(p, dienst=FakeDienst([(None, {"id": "f"})]), log=logs.append)
+    assert (fremd / "wichtig.txt").exists()
+    assert any("außerhalb" in l or "nicht in" in l for l in logs)
+
+
+def test_programmdateien_bleiben(umgebung):
+    prog, arbeit, projekt, v, t, pptx, wav = umgebung
+    skript = prog / "youtube_upload.py"; skript.write_text("x")
+    p = paket(v, loeschen=[str(skript)])
+    yu.hochladen(p, dienst=FakeDienst([(None, {"id": "p"})]), log=lambda s: None)
+    assert skript.exists() and not v.exists()
+
+
+def test_paket_json_aufraeum_felder(tmp_path):
+    (tmp_path / "p.json").write_text(json.dumps({"video": "v.mp4", "titel": "T", "loeschen": ["a.pptx"],
+                                                 "arbeitsordner": "arbeit/x", "aufraeumen": False}), encoding="utf-8")
+    p = yu.paket_laden(tmp_path / "p.json")
+    assert p.loeschen == [str(tmp_path / "a.pptx")] and p.arbeitsordner == str(tmp_path / "arbeit/x") and p.aufraeumen is False

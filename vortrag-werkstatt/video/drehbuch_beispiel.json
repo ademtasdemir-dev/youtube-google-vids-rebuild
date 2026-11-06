@@ -1,0 +1,287 @@
+{
+ "text": "",
+ "folien": [
+  {
+   "nr": 7,
+   "start": "Ja, danke dir",
+   "punkte": [
+    {
+     "anker": "wir haben 20 Arbeitsplätze",
+     "box": [
+      70,
+      134,
+      560,
+      166
+     ]
+    },
+    {
+     "anker": "So haben wir noch Luft",
+     "box": [
+      70,
+      192,
+      660,
+      224
+     ]
+    },
+    {
+     "anker": "Jeder Platz kriegt",
+     "box": [
+      70,
+      250,
+      536,
+      282
+     ]
+    },
+    {
+     "anker": "Verkabelt wird mit",
+     "box": [
+      70,
+      308,
+      556,
+      341
+     ]
+    },
+    {
+     "anker": "Solange Daten im selben",
+     "box": [
+      70,
+      366,
+      668,
+      398
+     ]
+    },
+    {
+     "anker": "Sobald es aber zwischen",
+     "box": [
+      52,
+      463,
+      840,
+      495
+     ]
+    }
+   ]
+  },
+  {
+   "nr": 8,
+   "start": "Der Gedanke ist ganz einfach",
+   "punkte": [
+    {
+     "anker": "Der Gedanke ist ganz einfach",
+     "box": [
+      56,
+      128,
+      360,
+      158
+     ]
+    },
+    {
+     "anker": "Die Arbeitsplätze sitzen",
+     "box": [
+      60,
+      180,
+      900,
+      234
+     ]
+    },
+    {
+     "anker": "Die Server und die beiden",
+     "box": [
+      60,
+      248,
+      900,
+      296
+     ]
+    },
+    {
+     "anker": "Im VLAN 30 da sitzt",
+     "box": [
+      60,
+      316,
+      900,
+      366
+     ]
+    },
+    {
+     "anker": "Und für ihre Gäste",
+     "box": [
+      60,
+      382,
+      900,
+      428
+     ]
+    },
+    {
+     "anker": "Wer am Ende worauf",
+     "box": [
+      60,
+      404,
+      830,
+      451
+     ]
+    }
+   ]
+  },
+  {
+   "nr": 9,
+   "start": "So jetzt geht es um die Daten",
+   "punkte": [
+    {
+     "anker": "So jetzt geht es um die Daten",
+     "box": [
+      38,
+      54,
+      296,
+      84
+     ]
+    },
+    {
+     "anker": "Alle Projekte liegen zentral",
+     "box": [
+      47,
+      148,
+      323,
+      312
+     ]
+    },
+    {
+     "anker": "Aber und das kann ich",
+     "box": [
+      52,
+      385,
+      900,
+      437
+     ]
+    },
+    {
+     "anker": "Deshalb gibt es ein zweites",
+     "box": [
+      340,
+      148,
+      617,
+      312
+     ]
+    },
+    {
+     "anker": "und obendrauf noch 2",
+     "box": [
+      633,
+      148,
+      910,
+      312
+     ]
+    }
+   ]
+  },
+  {
+   "nr": 10,
+   "start": "Natürlich haben wir uns auch gefragt",
+   "punkte": [
+    {
+     "anker": "Natürlich haben wir uns auch gefragt",
+     "box": [
+      56,
+      128,
+      424,
+      158
+     ]
+    },
+    {
+     "anker": "Erstens beim NAS",
+     "box": [
+      56,
+      180,
+      900,
+      258
+     ]
+    },
+    {
+     "anker": "Zweitens beim Arbeitsspeicher",
+     "box": [
+      56,
+      258,
+      900,
+      336
+     ]
+    },
+    {
+     "anker": "Und drittens bei den Festplatten",
+     "box": [
+      56,
+      343,
+      900,
+      422
+     ]
+    },
+    {
+     "anker": "Ganz ehrlich dazu",
+     "box": [
+      56,
+      420,
+      900,
+      488
+     ]
+    }
+   ]
+  },
+  {
+   "nr": 11,
+   "start": "So zum Schluss",
+   "punkte": [
+    {
+     "anker": "Wie lange dauert es eigentlich",
+     "box": [
+      38,
+      54,
+      344,
+      84
+     ]
+    },
+    {
+     "anker": "100 Gigabyte mal 8",
+     "box": [
+      55,
+      363,
+      552,
+      395
+     ]
+    },
+    {
+     "anker": "Bei einem Gigabit sind wir",
+     "box": [
+      47,
+      148,
+      323,
+      312
+     ]
+    },
+    {
+     "anker": "Bei 2,5 Gigabit sind es",
+     "box": [
+      340,
+      148,
+      617,
+      312
+     ]
+    },
+    {
+     "anker": "Und bei 10 Gigabit gerade",
+     "box": [
+      633,
+      148,
+      910,
+      312
+     ]
+    },
+    {
+     "anker": "Das ist natürlich der Idealfall",
+     "box": [
+      52,
+      422,
+      888,
+      475
+     ]
+    }
+   ]
+  }
+ ]
+}
