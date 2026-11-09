@@ -51,6 +51,10 @@ jobs:
           name: YouTubeRebuildTool-windows-exe
           path: dist
 
+      - name: Rename to portable name
+        shell: bash
+        run: mv dist/YouTubeRebuildTool.exe "dist/YouTubeRebuildTool-${GITHUB_REF_NAME#v}-portable.exe"
+
       - uses: softprops/action-gh-release@v2
         with:
-          files: dist/YouTubeRebuildTool.exe
+          files: dist/YouTubeRebuildTool-*-portable.exe

@@ -12,9 +12,10 @@ Analysiere ein YouTube-Video und erstelle daraus ein **Szenen-Skript** + **Googl
 
 ## EXE (Windows, ohne Installation)
 
-Lade `YouTubeRebuildTool.exe` aus dem [Releases-Bereich](../../releases) oder aus den
-[Actions-Artifacts](../../actions) herunter und starte sie per Doppelklick.
+**Download:** [`Download/YouTubeRebuildTool-1.1.0-portable.exe`](Download/YouTubeRebuildTool-1.1.0-portable.exe)
+öffnen → rechts „Download raw file“ (⤓) → doppelklicken. Keine Installation nötig.
 Die App öffnet sich dann automatisch im Browser.
+Beim ersten Start zeigt Windows evtl. „Unbekannter Herausgeber“ → *Weitere Informationen* → *Trotzdem ausführen*.
 
 Hinweis: YouTube blockiert Anfragen von Cloud-/VPN-IPs. Starte die EXE auf deinem
 Heim-PC ohne VPN, damit das Transkript abgerufen werden kann.
