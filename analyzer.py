@@ -1,5 +1,6 @@
+import os
 import re
-import math
+import sys
 from collections import Counter
 from typing import List, Dict, Any, Optional
 
@@ -9,8 +10,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api._errors import NoTranscriptFound
 
-app = FastAPI(title="YouTube Video Rebuild Tool", version="1.0.0")
+# Works both in dev mode and inside a PyInstaller onefile exe
+BASE_DIR = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+
+app = FastAPI(title="YouTube Video Rebuild Tool", version="1.1.0")
 
 # Allow the HTML frontend to call the API
 app.add_middleware(
@@ -21,7 +27,7 @@ app.add_middleware(
 )
 
 # Serve static files (the frontend)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 YOUTUBE_URL_RE = re.compile(r"(?:v=|\/|youtu\.be\/)([0-9A-Za-z_-]{11})")
 
@@ -55,7 +61,6 @@ class RebuildRequest(BaseModel):
     keyword: str
     language: str = "de"
 
-
 # ─── Helper functions ──────────────────────────────────────────────────────
 
 
@@ -69,14 +74,52 @@ def extract_video_id(url: str) -> str:
 
 
 def fetch_transcript(video_id: str) -> List[Dict[str, Any]]:
+    """Fetch the transcript: first try de/en, then ANY available transcript."""
     api = YouTubeTranscriptApi()
     try:
         return api.fetch(video_id, languages=["de", "en"]).to_raw_data()
-    except Exception:
+    except NoTranscriptFound:
+        pass
+    except Exception as e:
+        if "blocking requests from your IP" in str(e) or "IpBlocked" in type(e).__name__:
+            raise HTTPException(
+                status_code=429,
+                detail="YouTube blockiert Anfragen von dieser IP-Adresse. "
+                       "Starte die App auf deinem Heim-PC (keine Cloud/VPN) und versuche es erneut.",
+            )
+        raise HTTPException(status_code=400, detail=f"Transkript nicht verfügbar: {e}")
+
+    # Fallback: use any transcript that exists (also translated ones)
+    try:
+        transcript_list = api.list(video_id)
+        candidates = list(transcript_list)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Transkript nicht verfügbar: {e}")
+
+    if not candidates:
+        raise HTTPException(
+            status_code=404,
+            detail="Für dieses Video existiert kein Transkript (weder manuell noch automatisch erstellt).",
+        )
+
+    # Prefer German/English and manually created transcripts
+    candidates.sort(key=lambda t: (
+        0 if t.is_manually_created else 1,
+        0 if t.language_code in ("de", "en") else 1,
+    ))
+
+    for transcript in candidates:
         try:
-            return api.fetch(video_id).to_raw_data()
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Transkript nicht verfügbar: {e}")
+            if not transcript.is_translatable and transcript.language_code not in ("de", "en"):
+                continue
+            return transcript.fetch().to_raw_data()
+        except Exception:
+            continue
+
+    raise HTTPException(
+        status_code=404,
+        detail="Das Transkript dieses Videos konnte nicht abgerufen werden.",
+    )
 
 
 def full_text(transcript: List[Dict[str, Any]]) -> str:
@@ -88,7 +131,6 @@ def total_duration(transcript: List[Dict[str, Any]]) -> float:
         return 0
     last = transcript[-1]
     return last["start"] + last.get("duration", 0)
-
 
 # ─── Analysis layers ───────────────────────────────────────────────────────
 
@@ -135,6 +177,8 @@ def _build_scene(entries: List[Dict[str, Any]], number: int) -> Dict[str, Any]:
 
 def _split_scenes_evenly(transcript: List[Dict[str, Any]], target_count: int) -> List[Dict[str, Any]]:
     total = total_duration(transcript)
+    if target_count < 1:
+        target_count = 1
     interval = total / target_count
     scenes: List[Dict[str, Any]] = []
     current_entries: List[Dict[str, Any]] = []
@@ -193,7 +237,6 @@ def detect_cta(transcript: List[Dict[str, Any]]) -> Optional[str]:
             cta_parts.append(entry["text"])
     return " ".join(cta_parts) if cta_parts else None
 
-
 # ─── Scene-script & prompt generation ──────────────────────────────────────
 
 
@@ -215,20 +258,20 @@ def generate_scene_script(scenes: List[Dict[str, Any]], keyword: str, hook: str,
         lines.append(f"## Szene {sc['scene_number']}  ({_format_time(sc['start_sec'])} – {_format_time(sc['end_sec'])}  |  {sc['duration_sec']}s)")
 
         if sc["scene_number"] == 1:
-            lines.append(f"**Typ:** Hook / Einstieg")
+            lines.append("**Typ:** Hook / Einstieg")
             lines.append(f"**Vorlage-Text:** _{hook[:120]}…_")
             lines.append(f"**Dein Text:** [Schreibe hier einen packenden Einstieg zu **{keyword}**]")
         elif sc == scenes[-1] and cta:
-            lines.append(f"**Typ:** Call-to-Action / Abschluss")
+            lines.append("**Typ:** Call-to-Action / Abschluss")
             lines.append(f"**Vorlage-Text:** _{cta[:120]}…_")
             lines.append(f"**Dein Text:** [CTA für **{keyword}** – z. B. Abonnieren, Link, Produkt]")
         else:
-            lines.append(f"**Typ:** Hauptteil")
+            lines.append("**Typ:** Hauptteil")
             lines.append(f"**Vorlage-Text:** _{sc['text'][:120]}…_")
             lines.append(f"**Dein Text:** [Inhalt zu **{keyword}** passend zu dieser Szene]")
 
         lines.append(f"**Bild-/Video-Empfehlung:** [Beschreibung passend zu {keyword}]")
-        lines.append(f"**Text-Overlay:** [Kurzer Text für Einblendung]")
+        lines.append("**Text-Overlay:** [Kurzer Text für Einblendung]")
         lines.append("")
 
     return "\n".join(lines)
@@ -254,12 +297,12 @@ def generate_google_vids_prompt(scenes: List[Dict[str, Any]], keyword: str, hook
             prompt_lines.append(f"  Szene {sc['scene_number']} ({_format_time(sc['start_sec'])}–{_format_time(sc['end_sec'])}): Hauptinhalt ({sc['duration_sec']}s). Informativ und visuell ansprechend.")
 
     prompt_lines.append(f"\nSchlüsselwörter: {', '.join(keywords[:7])}")
-    prompt_lines.append(f"Stil: Modern, professionell, mit Text-Overlays und dynamischen Übergängen.")
-    prompt_lines.append(f"Musik: Passend zum Thema, motivierend, nicht zu laut.")
+    prompt_lines.append("Stil: Modern, professionell, mit Text-Overlays und dynamischen Übergängen.")
+    prompt_lines.append("Musik: Passend zum Thema, motivierend, nicht zu laut.")
     prompt_lines.append(f"Voiceover: Klar und professionell, {style['pacing']}es Tempo.")
 
     if cta:
-        prompt_lines.append(f"\nDer Abschluss soll einen klaren Call-to-Action enthalten.")
+        prompt_lines.append("\nDer Abschluss soll einen klaren Call-to-Action enthalten.")
 
     return "\n".join(prompt_lines)
 
@@ -269,13 +312,17 @@ def total_duration_from_scenes(scenes: List[Dict[str, Any]]) -> float:
         return 0
     return scenes[-1]["end_sec"]
 
-
 # ─── API endpoints ─────────────────────────────────────────────────────────
 
 
 @app.get("/")
 async def root():
-    return FileResponse("static/index.html")
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "app": app.title, "version": app.version}
 
 
 @app.post("/analyze")

@@ -10,15 +10,47 @@ Analysiere ein YouTube-Video und erstelle daraus ein **Szenen-Skript** + **Googl
 - 📋 **Google Vids Prompt** – Copy-Paste in Google Vids "Erstellen"
 - 📝 **Szenen-Skript** – Szene-für-Szene Vorlage mit Platzhaltern
 
-## Setup
+## EXE (Windows, ohne Installation)
+
+Lade `YouTubeRebuildTool.exe` aus dem [Releases-Bereich](../../releases) oder aus den
+[Actions-Artifacts](../../actions) herunter und starte sie per Doppelklick.
+Die App öffnet sich dann automatisch im Browser.
+
+Hinweis: YouTube blockiert Anfragen von Cloud-/VPN-IPs. Starte die EXE auf deinem
+Heim-PC ohne VPN, damit das Transkript abgerufen werden kann.
+
+## Entwicklung (lokales Setup)
+
 ```bash
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
-.venv\Scripts\uvicorn analyzer:app --host 127.0.0.1 --port 8000
+.venv\Scripts\python run.py
 ```
 
-Dann öffne http://127.0.0.1:8000 im Browser.
+Dann öffne die automatisch geöffnete Browser-Seite (bzw. http://127.0.0.1:8000,
+wenn du `uvicorn analyzer:app` nutzt).
+
+## EXE selbst bauen
+
+Lokal auf Windows:
+
+```bash
+pip install -r requirements.txt pyinstaller
+pyinstaller --noconfirm --clean --onefile --windowed --name YouTubeRebuildTool ^
+  --add-data "static;static" ^
+  --hidden-import uvicorn.logging ^
+  --hidden-import uvicorn.loops.auto ^
+  --hidden-import uvicorn.protocols.http.auto ^
+  --hidden-import uvicorn.protocols.websockets.auto ^
+  --hidden-import uvicorn.lifespan.on ^
+  run.py
+```
+
+Oder automatisch per GitHub Actions: Workflow **Build Windows EXE** manuell starten
+(Actions-Tab → Build Windows EXE → Run workflow). Die fertige EXE liegt dann unter
+Artifacts.
 
 ## Tech Stack
 - **Backend:** FastAPI + youtube-transcript-api
 - **Frontend:** Vanilla HTML/CSS/JS (Dark Theme, Glassmorphism)
+- **Build:** PyInstaller (onefile EXE), GitHub Actions
