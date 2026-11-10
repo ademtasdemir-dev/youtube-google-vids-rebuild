@@ -221,13 +221,13 @@ textarea{width:100%;min-height:200px;resize:vertical;font-family:var(--mono);fon
           <div class="reihe" style="margin-top:10px;justify-content:space-between"><span class="muted" id="verlaufSumme"></span><button class="btn klein" id="allesLoeschen" hidden>Alle Analysen löschen</button></div></div>
         <div class="karte"><h3>Einstellungen</h3>
           <div class="form" style="grid-template-columns:minmax(0,1fr)">
-            <label>Gemini-API-Schlüssel (kostenlos in Google AI Studio erstellen)<input id="eSchluessel" type="password" autocomplete="off" placeholder="AIza…"></label>
+            <label>Gemini-API-Schlüssel (kostenlos in Google AI Studio erstellen)<input id="eSchluessel" type="password" autocomplete="off" placeholder="AIza… oder AQ.…"></label>
             <label>Browser-Anmeldung für YouTube (nur nötig, wenn YouTube „Bot-Schutz“ meldet)<select id="eBrowser"><option value="">aus</option><option value="firefox">Firefox</option><option value="edge">Edge</option><option value="chrome">Chrome</option></select></label>
             <label>Gemini-Modell<select id="eModell"><option value="gemini-3-flash-preview">gemini-3-flash-preview (Standard)</option><option>gemini-2.5-flash</option><option>gemini-2.5-pro</option><option>gemini-2.5-flash-lite</option></select></label>
             <label class="haken"><input type="checkbox" id="eVideo" checked> Bei YouTube-Links schaut Gemini sich das ganze Video an (genauere Bildbeschreibung; zählt zum kostenlosen Tageskontingent von 8 Stunden Video)</label>
           </div>
           <p class="muted" style="font-size:13px">Ohne Schlüssel läuft alles lokal: Transkript, Sprecher, Trennung, Schnitte, Standbilder und Strukturplan. Mit Schlüssel kommen ausführliche Zusammenfassung, Bildbeschreibungen und Dramaturgie-Analyse dazu. Schlüssel holen: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></p>
-          <button class="btn p" id="eSpeichern">Einstellungen speichern</button>
+          <div class="reihe"><button class="btn p" id="eSpeichern">Einstellungen speichern</button><button class="btn" id="eTesten">Schlüssel testen</button></div>
         </div>
       </div>
     </div>
@@ -522,6 +522,11 @@ async function ladeVerlauf() {
     });
   } catch (e) { toast(esc(e.message), true); }
 }
+$("#eTesten").onclick = async () => {
+  toast("Teste Gemini …");
+  try { const r = await api("/api/gemini_test", {}); toast(r.ok ? `Gemini funktioniert (Modell: ${esc(r.modell)}).` : "Gemini hat unerwartet geantwortet.", !r.ok); }
+  catch (e) { toast("Gemini-Test fehlgeschlagen: " + esc(e.message), true); }
+};
 $("#allesLoeschen").onclick = async () => {
   const b = $("#allesLoeschen");
   if (b.dataset.sicher !== "1") { b.dataset.sicher = "1"; b.textContent = "Wirklich alle löschen?"; b.style.borderColor = "var(--err)"; return; }

@@ -38,7 +38,28 @@ Antworte ausschließlich mit JSON in genau diesem Aufbau:
  "titel_vorschlaege": ["..."],
  "verbesserungen": ["konkrete Hinweise, was man am Video besser machen könnte"]
 }
-Kapitel: nutze die vorgeschlagenen Kapitelgrenzen als Hilfe, verbessere sie, wenn der Inhalt es nahelegt. Erstes Kapitel bei 0."""
+Kapitel: nutze die vorgeschlagenen Kapitelgrenzen als Hilfe, verbessere sie, wenn der Inhalt es nahelegt. Erstes Kapitel bei 0.
+"bilder": für JEDES mitgeschickte Bild genau einen Eintrag mit seiner Nummer, keins auslassen."""
+
+BILDER_AUFGABE = """Beschreibe jedes der folgenden Standbilder aus einem Video, auf Deutsch, nur was wirklich zu sehen ist.
+Antworte ausschließlich mit JSON: {"bilder": [{"nr": Bildnummer, "bildtyp": "z.B. Folie, Diagramm, Person vor Kamera,
+Bildschirmaufnahme, B-Roll, Animation, Text-Einblendung", "beschreibung": "was genau zu sehen ist",
+"text_im_bild": "lesbarer Text im Bild, sonst leer"}]}. Für jedes Bild genau ein Eintrag."""
+
+
+def bilder_anfrage(szenen: list[dict], bilder_ordner: Path) -> dict:
+    """Zweite, kleine Anfrage nur für Standbilder, die in der ersten Antwort fehlten."""
+    teile = [{"text": BILDER_AUFGABE}]
+    for s in szenen:
+        teile.append({"text": f"Bild {s['nr']} ({hms(s['bild_zeit'])}):"})
+        teile.append(_bild_teil(bilder_ordner / s["bild"]))
+    return {"contents": [{"role": "user", "parts": teile}],
+            "generationConfig": {"responseMimeType": "application/json", "temperature": 0.2}}
+
+
+def fehlende_bilder(g: dict, szenen: list[dict]) -> list[dict]:
+    da = {b.get("nr") for b in g.get("bilder", []) if isinstance(b, dict) and (b.get("beschreibung") or "").strip()}
+    return [s for s in szenen if s["nr"] not in da]
 
 
 def _bild_teil(pfad: Path) -> dict:
@@ -73,12 +94,25 @@ def anfrage_bauen(info: dict, zeilen: list[dict], szenen: list[dict], kapitel: l
             "generationConfig": {"responseMimeType": "application/json", "temperature": 0.3}}
 
 
-def auswerten(schluessel: str, anfrage: dict, modell: str = STANDARD_MODELL, timeout: int = 600, log=None) -> dict:
+def testen(schluessel: str, modell: str = STANDARD_MODELL) -> dict:
+    """Kurzer Probeaufruf: prüft Schlüssel und Modell. Gibt das Modell zurück, das geantwortet hat."""
+    benutzt = {}
+    anfrage = {"contents": [{"role": "user", "parts": [{"text": 'Antworte nur mit diesem JSON: {"ok": true}'}]}],
+               "generationConfig": {"responseMimeType": "application/json", "temperature": 0}}
+    antwort = auswerten(schluessel, anfrage, modell, timeout=60, gewaehlt=benutzt)
+    return {"ok": bool(antwort.get("ok")), "modell": benutzt.get("modell")}
+
+
+def auswerten(schluessel: str, anfrage: dict, modell: str = STANDARD_MODELL, timeout: int = 600, log=None,
+              gewaehlt: dict | None = None) -> dict:
     """Probiert das gewählte Modell, bei „Modell nicht gefunden“ automatisch die Ersatzmodelle."""
     kandidaten = [modell or STANDARD_MODELL] + [m for m in ERSATZ_MODELLE if m != modell]
     for i, m in enumerate(kandidaten):
         try:
-            return _auswerten_einmal(schluessel, anfrage, m, timeout)
+            ergebnis = _auswerten_einmal(schluessel, anfrage, m, timeout)
+            if gewaehlt is not None:
+                gewaehlt["modell"] = m
+            return ergebnis
         except ModellFehlt:
             if i + 1 == len(kandidaten):
                 raise RuntimeError(f"Kein Gemini-Modell verfügbar ({', '.join(kandidaten)}).") from None
@@ -88,6 +122,19 @@ def auswerten(schluessel: str, anfrage: dict, modell: str = STANDARD_MODELL, tim
 
 class ModellFehlt(Exception):
     pass
+
+
+class VideoNichtErlaubt(Exception):
+    """Gemini darf das YouTube-Video nicht abrufen (z. B. nicht gelistet oder privat; nur öffentliche Videos gehen)."""
+
+
+def ohne_video(anfrage: dict) -> dict:
+    """Dieselbe Anfrage ohne den YouTube-Video-Teil (nur Transkript und Standbilder)."""
+    neu = json.loads(json.dumps(anfrage))
+    for c in neu.get("contents", []):
+        c["parts"] = [t for t in c.get("parts", []) if "file_data" not in t
+                      and not t.get("text", "").startswith("Das komplette Video ist beigefügt")]
+    return neu
 
 
 def _auswerten_einmal(schluessel: str, anfrage: dict, modell: str, timeout: int) -> dict:
@@ -106,6 +153,8 @@ def _auswerten_einmal(schluessel: str, anfrage: dict, modell: str, timeout: int)
             raise RuntimeError("Gemini-Schlüssel ungültig. Bitte in den Einstellungen prüfen.") from e
         if e.code == 404 or (e.code == 400 and "model" in msg.lower() and "not" in msg.lower() and "found" in msg.lower()):
             raise ModellFehlt(msg) from e
+        if e.code == 403 and any("file_data" in t for c in anfrage.get("contents", []) for t in c.get("parts", [])):
+            raise VideoNichtErlaubt(msg) from e
         if e.code == 429:
             raise RuntimeError("Gemini-Tageslimit erreicht (kostenloser Schlüssel). Später erneut versuchen.") from e
         raise RuntimeError(f"Gemini-Fehler {e.code}: {msg}") from e

@@ -155,3 +155,14 @@ def test_alles_loeschen(srv):
     url, _, o = srv
     c, r = post(url + "/api/alles_loeschen", {})
     assert c == 200 and r["geloescht"] == 1 and not o.exists()
+
+
+def test_gemini_test_ohne_und_mit_schluessel(srv, monkeypatch):
+    url, _, _ = srv
+    c, r = post(url + "/api/gemini_test", {})
+    assert c == 400 and "Schlüssel" in r["fehler"]
+    server.einstellungen_speichern({"gemini_schluessel": "AQ.test"})
+    from videoanalyse import gemini
+    monkeypatch.setattr(gemini, "_auswerten_einmal", lambda k, a, m, t: {"ok": True})
+    c, r = post(url + "/api/gemini_test", {})
+    assert c == 200 and r == {"ok": True, "modell": gemini.STANDARD_MODELL}

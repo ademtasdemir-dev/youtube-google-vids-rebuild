@@ -308,6 +308,9 @@ def test_gemini_einbauen():
     assert e["zusammenfassung"]["kurz"].startswith("Es geht") and len(e["kapitel"]) == 3
     assert e["kapitel"][1]["start"] == 40 and e["kapitel"][1]["ende"] == 80 and e["kapitel"][2]["ende"] == 100
     assert sz[0]["beschreibung"] == "Titelfolie" and e["sprecher"][0]["rolle"] == "Vortragender"
+    e2 = {**e, "bild": {"bildarten": {"Folie": 100}}}
+    _gemini_einbauen(e2, GEMINI_ANTWORT, z, sz, 100.0)
+    assert list(e2["bild"]["bildarten"]) == [sz[0]["bildtyp"]]
     assert bericht.kapitel_pruefen(e["kapitel"]) == []
 
 
@@ -325,3 +328,34 @@ def test_cartesia_transkript_fehler_werden_sauber():
     assert b("die beiden NAS -Geräte") == "die beiden Naas Geräte."
     assert b("ums Backup,.") == "ums Backup."
     assert b("Das kostet 1.000 Euro.") == "Das kostet eintausend Euro."
+
+
+def test_gemini_ohne_video_bei_403(tmp_path, monkeypatch):
+    import io, urllib.error
+    from PIL import Image
+    Image.new("RGB", (64, 36), "white").save(tmp_path / "bild_001.jpg")
+    sz = [{"nr": 1, "start": 0, "ende": 10, "bild": "bild_001.jpg", "bild_zeit": 1, "bildart": "Folie"}]
+    a = gemini.anfrage_bauen({"title": "T"}, [], sz, [], tmp_path, youtube_url="https://www.youtube.com/watch?v=bK6JBW4hPoU")
+    def urlopen(req, timeout=0):
+        raise urllib.error.HTTPError(req.full_url, 403, "x", {}, io.BytesIO(b'{"error":{"message":"The caller does not have permission"}}'))
+    monkeypatch.setattr(gemini.urllib.request, "urlopen", urlopen)
+    with pytest.raises(gemini.VideoNichtErlaubt):
+        gemini.auswerten("K", a)
+    ohne = gemini.ohne_video(a)
+    teile = ohne["contents"][0]["parts"]
+    assert not any("file_data" in t for t in teile) and any("inline_data" in t for t in teile)
+    assert not any(t.get("text", "").startswith("Das komplette Video") for t in teile)
+    with pytest.raises(RuntimeError, match="403"):   # ohne Video: normaler Fehler, keine Schleife
+        gemini.auswerten("K", ohne)
+
+
+def test_gemini_fehlende_bilder_nachfragen(tmp_path):
+    from PIL import Image
+    for i in (1, 2, 3):
+        Image.new("RGB", (64, 36), "white").save(tmp_path / f"bild_{i:03d}.jpg")
+    sz = [{"nr": i, "start": i, "ende": i + 1, "bild": f"bild_{i:03d}.jpg", "bild_zeit": i, "bildart": "Folie"} for i in (1, 2, 3)]
+    g = {"bilder": [{"nr": 1, "beschreibung": "Titelfolie"}, {"nr": 2, "beschreibung": ""}]}
+    fehlen = gemini.fehlende_bilder(g, sz)
+    assert [s["nr"] for s in fehlen] == [2, 3]
+    teile = gemini.bilder_anfrage(fehlen, tmp_path)["contents"][0]["parts"]
+    assert sum("inline_data" in t for t in teile) == 2 and "Bild 2" in teile[1]["text"]

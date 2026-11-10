@@ -55,6 +55,12 @@ def _gemini_einbauen(e: dict, g: dict, zeilen, szen, dauer):
         b = bilder.get(s["nr"])
         if b:
             s.update({"bildtyp": b.get("bildtyp", ""), "beschreibung": b.get("beschreibung", ""), "text_im_bild": b.get("text_im_bild", "")})
+    if any(s.get("bildtyp") for s in szen) and isinstance(e.get("bild"), dict):
+        arten = {}
+        for s in szen:  # "Was ist zu sehen?" mit den Bildtypen von Gemini statt der groben Schätzung
+            art = s.get("bildtyp") or s.get("bildart", "unbekannt")
+            arten[art] = round(arten.get(art, 0) + s["ende"] - s["start"], 1)
+        e["bild"]["bildarten"] = dict(sorted(arten.items(), key=lambda x: -x[1]))
     gk = [k for k in g.get("kapitel", []) if isinstance(k, dict) and "start" in k]
     if len(gk) >= 2:
         try:
@@ -170,8 +176,23 @@ def analysieren(eingabe: str, opt: dict, arbeit: Path, cache: Path, einstellunge
                 yt = (info.get("webpage_url") if info.get("quelle") == "youtube" and einstellungen.get("gemini_video", True) else None)
                 if yt:
                     fs.log("Gemini schaut sich zusätzlich das ganze YouTube-Video an …")
-                g = gemini.auswerten(schluessel, gemini.anfrage_bauen(info, zeilen, bild["szenen"], kap, bilder_dir, youtube_url=yt),
-                                     einstellungen.get("gemini_modell") or gemini.STANDARD_MODELL, log=fs.log)
+                anfrage = gemini.anfrage_bauen(info, zeilen, bild["szenen"], kap, bilder_dir, youtube_url=yt)
+                modell = einstellungen.get("gemini_modell") or gemini.STANDARD_MODELL
+                try:
+                    g = gemini.auswerten(schluessel, anfrage, modell, log=fs.log)
+                except gemini.VideoNichtErlaubt:
+                    fs.log("Gemini darf das Video selbst nicht abrufen (nur öffentliche YouTube-Videos). "
+                           "Auswertung läuft mit Transkript und Standbildern weiter …")
+                    g = gemini.auswerten(schluessel, gemini.ohne_video(anfrage), modell, log=fs.log)
+                fehlen = gemini.fehlende_bilder(g, bild["szenen"])
+                if fehlen:
+                    fs.log(f"Beschreibe noch {len(fehlen)} Standbild(er) einzeln …")
+                    for i in range(0, len(fehlen), 20):
+                        try:
+                            nach = gemini.auswerten(schluessel, gemini.bilder_anfrage(fehlen[i:i + 20], bilder_dir), modell, log=fs.log)
+                            g.setdefault("bilder", []).extend(b for b in nach.get("bilder", []) if isinstance(b, dict))
+                        except Exception as ex:
+                            fs.log(f"⚠ Einzelbeschreibung nicht möglich: {ex}")
                 _gemini_einbauen(e, g, zeilen, bild["szenen"], dauer)
                 e["analyse_art"] = "lokal + Gemini"
                 fs.log("Gemini-Auswertung übernommen")

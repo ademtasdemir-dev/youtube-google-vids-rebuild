@@ -28,9 +28,15 @@ Voraussetzung: `uv` ist installiert (bei dir schon vorhanden). Sonst: `winget in
 ## Gemini (optional, kostenlos)
 Ohne Schlüssel läuft alles lokal auf deinem PC. Mit Schlüssel kommen dazu: ausführliche Zusammenfassung,
 Kapitel mit Inhalt, Beschreibung jedes Standbilds, Text im Bild, Darstellung, Dramaturgie, Sprecherrollen.
-- Schlüssel kostenlos holen: https://aistudio.google.com/apikey → unter **Verlauf & Einstellungen** eintragen.
+- **Bei dir schon eingerichtet:** Schlüssel „Default Gemini Key“ aus dem Projekt *Automatischer YouTube-Upload*
+  (AI Studio zeigt dort **Kostenlose Stufe**, also keine Kosten). Er steht nur lokal in `daten/einstellungen.json`.
+- Prüfen: **Verlauf & Einstellungen → Schlüssel testen**.
+- Anderer Schlüssel: https://aistudio.google.com/apikey → unter **Verlauf & Einstellungen** eintragen. Nimm einen Schlüssel
+  aus einem Projekt mit „Kostenlose Stufe“. Schlüssel aus Projekten mit „Preisstufe 1“ kosten pro Aufruf Geld.
 - Standardmodell: `gemini-3-flash-preview`. Ist es nicht verfügbar, nimmt das Programm automatisch `gemini-2.5-flash`.
-- Bei YouTube-Links schaut sich Gemini auf Wunsch das ganze Video an (kostenlos bis 8 Stunden Video pro Tag).
+- Bei **öffentlichen** YouTube-Videos schaut sich Gemini auf Wunsch das ganze Video an (kostenlos bis 8 Stunden Video pro Tag).
+  Bei nicht gelisteten oder privaten Videos darf Gemini das nicht. Dann wertet es automatisch Transkript und Standbilder aus.
+- Fehlt in der Antwort eine Bildbeschreibung, fragt das Programm für diese Bilder automatisch nach.
 
 ## Cartesia-Regeln (automatisch)
 - Zahlen ausgeschrieben: 12 TB → zwölf Terabyte, 2,5 → zwei Komma fünf, 13:20 → dreizehn Minuten und zwanzig Sekunden

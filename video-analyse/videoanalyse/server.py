@@ -238,6 +238,15 @@ class Handler(BaseHTTPRequestHandler):
                 if sys.platform == "win32":
                     os.startfile(p)  # noqa
                 return self._json({"pfad": str(p)})
+            if u.path == "/api/gemini_test":
+                from . import gemini
+                e = einstellungen(); k = (e.get("gemini_schluessel") or "").strip()
+                if not k:
+                    return self._fehler("Noch kein Gemini-Schlüssel gespeichert.")
+                try:
+                    return self._json(gemini.testen(k, e.get("gemini_modell") or gemini.STANDARD_MODELL))
+                except Exception as ex:
+                    return self._fehler(str(ex), 502)
             if u.path == "/api/alles_loeschen":
                 if JOB["thread"] and JOB["thread"].is_alive():
                     return self._fehler("Es läuft gerade eine Analyse.", 409)
