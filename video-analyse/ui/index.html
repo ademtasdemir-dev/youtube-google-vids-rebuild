@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Video-Analyse</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Schnittplatz: dunkler Arbeitstisch, Timecodes in Bernstein, Aktionen in Petrol */
+:root{
+  --bg:#0d1114; --panel:#141a1f; --panel2:#1a2228; --line:#26313a; --fg:#e4ebef; --muted:#8a9aa6;
+  --acc:#3fb8ad; --acc-d:#2a8c84; --tc:#f0b350; --ok:#58c48a; --warn:#e8a33d; --err:#ef6a5f;
+  --s1:#5fb8f0; --s2:#f08aa8; --s3:#b39cf5; --s4:#8fd46a; --s5:#f0c35f; --s6:#5fe0d0;
+  --sans:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; --mono:"IBM Plex Mono",Consolas,ui-monospace,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 var(--sans)}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--acc)}
+.tc{font-family:var(--mono);color:var(--tc);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.mono{font-family:var(--mono)}
+header{display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--line);background:#0f1418;position:sticky;top:0;z-index:20;flex-wrap:wrap}
+.logo{font-weight:700;letter-spacing:.01em;display:flex;align-items:center;gap:10px;white-space:nowrap}
+.logo i{width:22px;height:22px;border-radius:5px;background:linear-gradient(135deg,var(--acc),#1d5f59);display:inline-block;position:relative}
+.logo i::after{content:"";position:absolute;left:8px;top:6px;border-left:8px solid #0d1114;border-top:5px solid transparent;border-bottom:5px solid transparent}
+.eingabe{flex:1;display:flex;gap:8px;min-width:280px}
+.eingabe input{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px}
+.eingabe input:focus{outline:2px solid var(--acc-d);border-color:var(--acc-d)}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--acc-d)}
+.btn:focus-visible{outline:2px solid var(--acc)}
+.btn.p{background:var(--acc);border-color:var(--acc);color:#06201d;font-weight:600}
+.btn.p:hover{background:#52cbc0}
+.btn.klein{padding:4px 10px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.optionen{display:flex;gap:16px;flex-wrap:wrap;padding:10px 20px;border-bottom:1px solid var(--line);background:var(--panel);font-size:13.5px;align-items:center}
+.optionen label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.optionen select{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:3px 6px}
+.chip{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.chip.an{border-color:var(--acc-d);color:var(--acc)}
+main{display:grid;grid-template-columns:minmax(320px,430px) minmax(0,1fr);gap:0;min-height:calc(100vh - 110px)}
+@media (max-width:1000px){main{grid-template-columns:minmax(0,1fr)}}
+aside{border-right:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.karte{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.karte h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+video{width:100%;border-radius:8px;background:#000;display:block;aspect-ratio:16/9}
+.meta{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;font-size:13.5px}
+.meta dt{color:var(--muted)}
+.meta dd{margin:0;overflow-wrap:anywhere}
+.zahlen{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.zahl{background:var(--panel2);border-radius:8px;padding:8px 10px}
+.zahl b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+.zahl span{font-size:12px;color:var(--muted)}
+section.inhalt{padding:0 20px 40px;min-width:0}
+nav.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);position:sticky;top:61px;background:var(--bg);z-index:10;overflow-x:auto;padding-top:10px}
+nav.tabs button{background:none;border:none;border-bottom:2px solid transparent;padding:10px 14px;cursor:pointer;color:var(--muted);white-space:nowrap}
+nav.tabs button.akt{color:var(--fg);border-color:var(--acc)}
+nav.tabs button:disabled{opacity:.35;cursor:default}
+.seite{padding-top:18px;display:none}
+.seite.akt{display:block}
+h2{font-size:20px;margin:0 0 4px;text-wrap:balance}
+.unter{color:var(--muted);margin:0 0 16px}
+.raster2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:1300px){.raster2{grid-template-columns:minmax(0,1fr)}}
+.prosa{max-width:75ch;white-space:pre-wrap}
+ul.punkte{margin:6px 0 0;padding-left:20px}
+ul.punkte li{margin:3px 0}
+.balken{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--panel2);margin:8px 0}
+.balken div{height:100%}
+.legende{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
+.legende i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.tabelle{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:var(--panel);position:sticky;top:0}
+tr:last-child td{border-bottom:none}
+tbody tr:hover{background:#18212a}
+tr.klick{cursor:pointer}
+td textarea.titelfeld{width:100%;min-height:0;resize:vertical;background:transparent;border:1px solid transparent;border-radius:5px;padding:3px 5px;font:600 14px/1.4 var(--sans);color:var(--fg)}
+td textarea.titelfeld:hover,td textarea.titelfeld:focus{border-color:var(--line);background:var(--panel2)}
+.phase{font-size:12px;padding:2px 8px;border-radius:999px;background:#22303a;white-space:nowrap}
+.daumen{width:120px;border-radius:5px;display:block}
+.hinweis{border-left:3px solid var(--warn);background:#2a2216;padding:8px 12px;border-radius:0 8px 8px 0;margin:10px 0;font-size:14px}
+.hinweis.ok{border-color:var(--ok);background:#16261d}
+.werkzeug{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.werkzeug input[type=search]{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:220px}
+.tz{display:grid;grid-template-columns:96px 130px minmax(0,1fr);gap:12px;padding:8px 10px;border-bottom:1px solid var(--line);align-items:start}
+.tz:hover{background:#151d24}
+.tz .sp{font-weight:600;font-size:13.5px}
+.tz.aktiv{background:#16272a}
+@media (max-width:700px){.tz{grid-template-columns:80px minmax(0,1fr)}.tz .sp{grid-column:2}.tz .tx{grid-column:1/-1}}
+mark{background:#5a4510;color:#fff;border-radius:3px}
+.galerie{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.bild{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer}
+.bild img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover;background:#000}
+.bild div{padding:9px 11px;font-size:13.5px}
+.bild b{display:block;margin:2px 0}
+.audios{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.audio audio{width:100%;margin:8px 0}
+.reihe{display:flex;gap:8px;flex-wrap:wrap}
+.form{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin:10px 0}
+.form label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.form label.haken{flex-direction:row;align-items:flex-start;gap:8px;line-height:1.4}
+.form label.haken input{margin-top:2px;flex:none}
+.form input,.form select,textarea{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 9px;color:var(--fg)}
+textarea{width:100%;min-height:200px;resize:vertical;font-family:var(--mono);font-size:13.5px;line-height:1.55}
+.ausgabe{white-space:pre-wrap;font-family:var(--mono);font-size:13.5px;background:#0a0e10;border:1px solid var(--line);border-radius:8px;padding:12px;max-height:460px;overflow:auto}
+.ausgabe .br{color:var(--tc)}
+.ausgabe .fl{color:var(--s2)}
+.schritte{display:grid;gap:6px;margin:12px 0}
+.schritt{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:14px}
+.punkt{width:12px;height:12px;border-radius:50%;background:var(--line);margin-left:4px}
+.schritt.läuft .punkt{background:var(--acc);box-shadow:0 0 0 4px #3fb8ad33;animation:puls 1.2s infinite}
+.schritt.fertig .punkt{background:var(--ok)}
+.schritt.Fehler .punkt{background:var(--err)}
+.schritt.übersprungen{color:var(--muted)}
+@keyframes puls{50%{box-shadow:0 0 0 7px #3fb8ad11}}
+@media (prefers-reduced-motion:reduce){.schritt.läuft .punkt{animation:none}}
+.fbalken{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden}
+.fbalken div{height:100%;background:var(--acc);transition:width .3s}
+.log{font-family:var(--mono);font-size:12.5px;max-height:220px;overflow:auto;background:#0a0e10;border-radius:8px;padding:8px 10px;color:#b9c6cf}
+.leer{border:1px dashed var(--line);border-radius:12px;padding:28px;color:var(--muted);text-align:center}
+.toast{position:fixed;right:18px;bottom:18px;background:var(--panel2);border:1px solid var(--acc-d);border-radius:10px;padding:10px 14px;max-width:460px;z-index:50;box-shadow:0 10px 30px #0008;font-size:14px;overflow-wrap:anywhere}
+.toast.f{border-color:var(--err)}
+.verlauf-zeile{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.kchip{display:inline-block;font-size:12px;background:#1f2b33;border-radius:5px;padding:1px 6px;margin:2px 3px 0 0;color:#c6d3db}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><i></i>Video-Analyse</div>
+  <form class="eingabe" id="formAnalyse">
+    <input id="eingabe" type="text" placeholder="YouTube-Link einfügen (youtube.com/watch?v=…, youtu.be/…, Shorts) oder Videodatei wählen" autocomplete="off" aria-label="YouTube-Link oder Videodatei">
+    <button type="button" class="btn" id="btnDatei">Datei wählen …</button>
+    <button type="submit" class="btn p" id="btnStart">Analysieren</button>
+  </form>
+</header>
+<div class="optionen" aria-label="Optionen">
+  <label><input type="checkbox" id="oTrennen" checked> Stimme und Musik trennen</label>
+  <label><input type="checkbox" id="oSprecher" checked> Sprecher erkennen</label>
+  <label>Sprecherzahl <select id="oAnzahl"><option value="">automatisch</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+  <label>Genauigkeit <select id="oModell"><option value="base">schnell</option><option value="small" selected>gut</option><option value="medium">sehr gut (langsam)</option></select></label>
+  <label>Sprache <select id="oSprache"><option value="de" selected>Deutsch</option><option value="en">Englisch</option><option value="tr">Türkisch</option><option value="auto">automatisch</option></select></label>
+  <label><input type="checkbox" id="oGemini" checked> KI-Auswertung mit Gemini</label>
+  <span class="chip" id="geminiChip">Gemini: –</span>
+</div>
+<main>
+  <aside>
+    <div class="karte" id="laufKarte" hidden>
+      <h3 id="laufTitel">Analyse läuft</h3>
+      <div id="laufSchritt" class="muted">–</div>
+      <div class="fbalken" style="margin:8px 0"><div id="laufBalken" style="width:0"></div></div>
+      <div class="schritte" id="schritte"></div>
+      <div class="log" id="log"></div>
+    </div>
+    <div class="karte" id="videoKarte" hidden>
+      <video id="player" controls preload="metadata"></video>
+      <div style="margin-top:10px" id="videoTitel"></div>
+    </div>
+    <div class="karte" id="metaKarte" hidden><h3>Video</h3><dl class="meta" id="meta"></dl></div>
+    <div class="karte" id="zahlenKarte" hidden><h3>Kennzahlen</h3><div class="zahlen" id="zahlen"></div></div>
+    <div class="karte" id="kapitelKarte" hidden><h3>Kapitel</h3><div id="kapitelMini"></div></div>
+    <div class="karte" id="startHilfe">
+      <h3>So geht's</h3>
+      <ol class="punkte" style="padding-left:18px;margin:0">
+        <li>YouTube-Link oben einfügen oder eigene Videodatei wählen.</li>
+        <li><b>Analysieren</b> klicken. Alles läuft auf deinem PC.</li>
+        <li>Ergebnisse in den Reitern ansehen. Jeder Download fragt nach dem Ordner.</li>
+      </ol>
+      <p class="muted" style="font-size:13px;margin:10px 0 0">Beim ersten Mal werden die Erkennungsmodelle geladen (einmalig etwa 1 GB).</p>
+    </div>
+  </aside>
+  <section class="inhalt">
+    <nav class="tabs" role="tablist">
+      <button data-t="uebersicht" class="akt">Übersicht</button>
+      <button data-t="struktur">Strukturplan</button>
+      <button data-t="transkript">Transkript</button>
+      <button data-t="bilder">Bilder</button>
+      <button data-t="audio">Audio</button>
+      <button data-t="cartesia">Cartesia-Text</button>
+      <button data-t="export">Export</button>
+      <button data-t="verlauf">Verlauf &amp; Einstellungen</button>
+    </nav>
+    <div class="seite akt" id="t-uebersicht"><div class="leer">Noch keine Analyse geladen. Link oben einfügen und auf <b>Analysieren</b> klicken, oder unter <b>Verlauf</b> eine frühere Analyse öffnen.</div></div>
+    <div class="seite" id="t-struktur"></div>
+    <div class="seite" id="t-transkript"></div>
+    <div class="seite" id="t-bilder"></div>
+    <div class="seite" id="t-audio"></div>
+    <div class="seite" id="t-cartesia">
+      <h2>Cartesia-Sprechtext bauen</h2>
+      <p class="unter">Text einfügen oder aus dem Transkript übernehmen. Zahlen werden ausgeschrieben, Fachwörter richtig geschrieben (Naas, Wii Lan, Rejd, Käht), Bindestriche und Ausrufezeichen entfernt und Pausen gesetzt.</p>
+      <div class="reihe" style="margin-bottom:8px">
+        <button class="btn klein" id="cAusTranskript">Aus Transkript übernehmen</button>
+        <button class="btn klein" id="cBeispiel">Beispieltext</button>
+        <button class="btn klein" id="cLeeren">Leeren</button>
+      </div>
+      <textarea id="cText" placeholder="Hier deinen Vortragstext einfügen. Leerzeile = neuer Absatz (längere Pause)."></textarea>
+      <div class="form">
+        <label>Pause nach Satz (ms)<input id="cSatz" type="number" value="400" min="0" step="50"></label>
+        <label>Pause nach Absatz (ms)<input id="cAbsatz" type="number" value="700" min="0" step="50"></label>
+        <label>Pause nach Doppelpunkt (ms)<input id="cDoppel" type="number" value="300" min="0" step="50"></label>
+        <label>Füllwörter „ähm“<select id="cFueller"><option value="aus">aus</option><option value="wenig" selected>wenig</option><option value="mittel">mittel</option><option value="viel">viel</option></select></label>
+        <label>Pause nach „ähm“ (ms)<input id="cAehm" type="number" value="200" min="0" step="50"></label>
+        <label>Vorredner<input id="cVor" placeholder="z. B. Marcel (Dank am Anfang)"></label>
+        <label>Nachredner<input id="cNach" placeholder="z. B. Alexander (Übergabe)"></label>
+        <label>Cartesia-Modell<input id="cModell" value="sonic-3" placeholder="sonic-3"></label>
+        <label>Stimmen-ID (aus Cartesia)<input id="cStimme" placeholder="z. B. a0e99841-…"></label>
+        <label>Tempo (0,6–1,5)<input id="cTempo" type="number" value="1" min="0.6" max="1.5" step="0.05"></label>
+      </div>
+      <label class="muted" style="font-size:13px">Eigene Aussprache (eine Regel pro Zeile, z. B. <span class="mono">USV = U S V</span>)</label>
+      <textarea id="cAussprache" style="min-height:70px" placeholder="Wort = Schreibweise für die Stimme"></textarea>
+      <div class="reihe" style="margin:10px 0"><button class="btn p" id="cBauen">Cartesia-Text bauen</button><button class="btn" id="cNeuMischen">Füllwörter neu verteilen</button></div>
+      <div id="cErgebnis"></div>
+    </div>
+    <div class="seite" id="t-export"></div>
+    <div class="seite" id="t-verlauf">
+      <div class="raster2">
+        <div class="karte"><h3>Frühere Analysen</h3><p class="muted" style="font-size:13px;margin:0 0 6px">Alles liegt nur auf deinem PC. Nach dem Speichern kannst du Analysen löschen, um Platz zu sparen.</p><div id="verlaufListe"></div>
+          <div class="reihe" style="margin-top:10px;justify-content:space-between"><span class="muted" id="verlaufSumme"></span><button class="btn klein" id="allesLoeschen" hidden>Alle Analysen löschen</button></div></div>
+        <div class="karte"><h3>Einstellungen</h3>
+          <div class="form" style="grid-template-columns:minmax(0,1fr)">
+            <label>Gemini-API-Schlüssel (kostenlos in Google AI Studio erstellen)<input id="eSchluessel" type="password" autocomplete="off" placeholder="AIza…"></label>
+            <label>Browser-Anmeldung für YouTube (nur nötig, wenn YouTube „Bot-Schutz“ meldet)<select id="eBrowser"><option value="">aus</option><option value="firefox">Firefox</option><option value="edge">Edge</option><option value="chrome">Chrome</option></select></label>
+            <label>Gemini-Modell<select id="eModell"><option value="gemini-3-flash-preview">gemini-3-flash-preview (Standard)</option><option>gemini-2.5-flash</option><option>gemini-2.5-pro</option><option>gemini-2.5-flash-lite</option></select></label>
+            <label class="haken"><input type="checkbox" id="eVideo" checked> Bei YouTube-Links schaut Gemini sich das ganze Video an (genauere Bildbeschreibung; zählt zum kostenlosen Tageskontingent von 8 Stunden Video)</label>
+          </div>
+          <p class="muted" style="font-size:13px">Ohne Schlüssel läuft alles lokal: Transkript, Sprecher, Trennung, Schnitte, Standbilder und Strukturplan. Mit Schlüssel kommen ausführliche Zusammenfassung, Bildbeschreibungen und Dramaturgie-Analyse dazu. Schlüssel holen: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></p>
+          <button class="btn p" id="eSpeichern">Einstellungen speichern</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast" hidden></div>
+<script>
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const hms = s => { s = Math.max(0, Math.floor(s||0)); const h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60; return h ? `${h}:${String(m).padStart(2,"0")}:${String(x).padStart(2,"0")}` : `${m}:${String(x).padStart(2,"0")}`; };
+const FARBEN = ["var(--s1)","var(--s2)","var(--s3)","var(--s4)","var(--s5)","var(--s6)"];
+const spFarbe = sp => FARBEN[((parseInt(String(sp).replace(/\D/g, "")) || 1) - 1) % FARBEN.length];
+const BILDFARBEN = ["#3fb8ad","#f0b350","#5fb8f0","#f08aa8","#b39cf5","#8fd46a","#8a9aa6"];
+let E = null, AKTIV_ORDNER = null, pollTimer = null, seed = 7;
+
+async function api(pfad, body) {
+  const r = await fetch(pfad, body === undefined ? {} : {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  const d = await r.json().catch(() => ({fehler: "Antwort nicht lesbar"}));
+  if (!r.ok || d.fehler) throw new Error(d.fehler || r.statusText);
+  return d;
+}
+function toast(text, fehler=false) {
+  const t = $("#toast"); t.innerHTML = text; t.className = "toast" + (fehler ? " f" : ""); t.hidden = false;
+  clearTimeout(t._t); t._t = setTimeout(() => t.hidden = true, fehler ? 9000 : 6000);
+}
+const datei = p => `/datei?ordner=${encodeURIComponent(AKTIV_ORDNER)}&pfad=${encodeURIComponent(p)}`;
+function springe(sek) { const v = $("#player"); if (!v.src) return; v.currentTime = sek; v.play().catch(()=>{}); }
+
+async function speichern(dateien, opts={}) {
+  try {
+    toast("Ordner-Auswahl ist geöffnet (evtl. hinter dem Browser) …");
+    const r = await api("/api/speichern", {ordner: AKTIV_ORDNER, dateien, ...opts});
+    if (r.abgebrochen) return toast("Speichern abgebrochen.");
+    toast("Gespeichert:<br>" + r.gespeichert.map(esc).join("<br>"));
+  } catch (e) { toast("Fehler beim Speichern: " + esc(e.message), true); }
+}
+async function textSpeichern(name, inhalt) {
+  try {
+    toast("Ordner-Auswahl ist geöffnet (evtl. hinter dem Browser) …");
+    const r = await api("/api/text_speichern", {name, inhalt});
+    if (r.abgebrochen) return toast("Speichern abgebrochen.");
+    toast("Gespeichert:<br>" + esc(r.gespeichert[0]));
+  } catch (e) { toast("Fehler: " + esc(e.message), true); }
+}
+async function kopieren(text) {
+  try { await navigator.clipboard.writeText(text); toast("In die Zwischenablage kopiert."); }
+  catch { toast("Kopieren nicht möglich, bitte Text markieren und Strg+C drücken.", true); }
+}
+
+/* ---------- Tabs ---------- */
+$$("nav.tabs button").forEach(b => b.onclick = () => {
+  $$("nav.tabs button").forEach(x => x.classList.toggle("akt", x === b));
+  $$(".seite").forEach(s => s.classList.toggle("akt", s.id === "t-" + b.dataset.t));
+  if (b.dataset.t === "verlauf") ladeVerlauf();
+});
+function zeigeTab(t) { $(`nav.tabs button[data-t="${t}"]`).click(); }
+
+/* ---------- Analyse starten / Fortschritt ---------- */
+$("#btnDatei").onclick = async () => {
+  try { toast("Datei-Auswahl ist geöffnet (evtl. hinter dem Browser) …"); const r = await api("/api/datei_waehlen", {}); if (r.pfad) { $("#eingabe").value = r.pfad; toast("Datei gewählt."); } else toast("Keine Datei gewählt."); }
+  catch (e) { toast(esc(e.message), true); }
+};
+$("#formAnalyse").onsubmit = async ev => {
+  ev.preventDefault();
+  const eingabe = $("#eingabe").value.trim();
+  if (!eingabe) return toast("Bitte einen YouTube-Link einfügen oder eine Datei wählen.", true);
+  const optionen = {trennen: $("#oTrennen").checked, sprecher: $("#oSprecher").checked, sprecher_anzahl: parseInt($("#oAnzahl").value) || null,
+    modell: $("#oModell").value, sprache: $("#oSprache").value, gemini: $("#oGemini").checked};
+  try { await api("/api/analyse", {eingabe, optionen}); $("#startHilfe").hidden = true; beobachten(); }
+  catch (e) { toast(esc(e.message), true); }
+};
+function beobachten() {
+  $("#laufKarte").hidden = false; $("#btnStart").disabled = true;
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    let s; try { s = await api("/api/status"); } catch { return; }
+    const f = s.fortschritt; if (!f) return;
+    $("#laufTitel").textContent = f.fehler ? "Analyse abgebrochen" : (f.fertig ? "Analyse fertig" : "Analyse läuft");
+    $("#laufSchritt").textContent = f.fehler ? "Fehler: " + f.fehler : (f.fertig ? "Fertig" : f.schritt);
+    $("#laufBalken").style.width = Math.round((f.prozent || 0) * 100) + "%";
+    $("#schritte").innerHTML = s.schritte.map(n => `<div class="schritt ${esc(f.status[n])}"><span class="punkt"></span><span>${esc(n)}</span><span class="muted" style="font-size:12px">${f.status[n] === "offen" ? "" : esc(f.status[n])}</span></div>`).join("");
+    const log = $("#log"); log.innerHTML = f.meldungen.map(([t, m]) => `<div><span class="muted">${esc(t)}</span> ${esc(m)}</div>`).join(""); log.scrollTop = log.scrollHeight;
+    if (!s.laeuft && f.fertig) {
+      clearInterval(pollTimer); $("#btnStart").disabled = false;
+      if (f.fehler) toast("Analyse abgebrochen: " + esc(f.fehler), true);
+      else { await oeffnen(s.ordner); toast("Analyse fertig."); }
+    }
+  }, 900);
+}
+
+/* ---------- Ergebnis anzeigen ---------- */
+async function oeffnen(ordner) {
+  try { E = await api("/api/ergebnis?ordner=" + encodeURIComponent(ordner)); }
+  catch (e) { return toast("Konnte Analyse nicht laden: " + esc(e.message), true); }
+  AKTIV_ORDNER = ordner;
+  $("#startHilfe").hidden = true;
+  zeigeSeitenleiste(); zeigeUebersicht(); zeigeStruktur(); zeigeTranskript(); zeigeBilder(); zeigeAudio(); zeigeExport();
+  zeigeTab("uebersicht");
+}
+function zeigeSeitenleiste() {
+  const i = E.info, k = E.kennzahlen;
+  $("#videoKarte").hidden = $("#metaKarte").hidden = $("#zahlenKarte").hidden = $("#kapitelKarte").hidden = false;
+  $("#player").src = datei(E.video_datei);
+  if (i.vorschaubild) $("#player").poster = datei(i.vorschaubild.split(/[\\/]/).pop());
+  $("#videoTitel").innerHTML = `<b>${esc(i.title)}</b>`;
+  const zeilen = [["Kanal", i.uploader || "–"], ["Länge", hms(k.dauer)], ["Quelle", i.quelle === "youtube" ? `<a href="${esc(i.webpage_url)}" target="_blank" rel="noopener">YouTube öffnen</a>` : "eigene Datei"],
+    ["Hochgeladen", i.upload_date ? `${i.upload_date.slice(6)}.${i.upload_date.slice(4,6)}.${i.upload_date.slice(0,4)}` : "–"],
+    ["Aufrufe", i.view_count != null ? Number(i.view_count).toLocaleString("de-DE") : "–"], ["Sprache", E.sprache || "–"], ["Analyse", E.analyse_art]];
+  $("#meta").innerHTML = zeilen.map(([a, b]) => `<dt>${a}</dt><dd>${a === "Quelle" ? b : esc(b)}</dd>`).join("");
+  $("#zahlen").innerHTML = [[E.sprecher.length, "Sprecher"], [E.kapitel.length, "Kapitel"], [E.bild.szenen.length, "Szenen"], [k.wpm, "Wörter/Min."],
+    [k.schnitte_pro_minute, "Schnitte/Min."], [Math.round(k.sprechanteil) + " %", "Sprechanteil"]]
+    .map(([a, b]) => `<div class="zahl"><b>${esc(a)}</b><span>${b}</span></div>`).join("");
+  $("#kapitelMini").innerHTML = E.kapitel.map(c => `<div class="verlauf-zeile klick" style="cursor:pointer" data-s="${c.start}"><span><span class="tc">${hms(c.start)}</span> ${esc(c.titel)}</span><span class="phase">${esc(c.phase)}</span></div>`).join("");
+  $$("#kapitelMini [data-s]").forEach(el => el.onclick = () => springe(+el.dataset.s));
+}
+function zeigeUebersicht() {
+  const z = E.zusammenfassung, k = E.kennzahlen;
+  const arten = Object.entries(E.bild.bildarten);
+  const balken = arten.map(([a, s], i) => `<div style="width:${100 * s / k.dauer}%;background:${BILDFARBEN[i % 7]}" title="${esc(a)}"></div>`).join("");
+  const leg = arten.map(([a, s], i) => `<span><i style="background:${BILDFARBEN[i % 7]}"></i>${esc(a)} · ${hms(s)} (${Math.round(100 * s / k.dauer)} %)</span>`).join("");
+  const sp = E.sprecher.map(s => `<div style="width:${s.anteil}%;background:${spFarbe(s.sprecher)}"></div>`).join("");
+  const spLeg = E.sprecher.map(s => `<span><i style="background:${spFarbe(s.sprecher)}"></i>${esc(s.sprecher)}${s.rolle ? " – " + esc(s.rolle) : ""}: ${s.anteil} % · ${s.woerter} Wörter</span>`).join("");
+  const abschnitt = (titel, obj) => obj && Object.keys(obj).length ? `<div class="karte"><h3>${titel}</h3>${Object.entries(obj).map(([a, b]) => `<p style="margin:0 0 8px"><b>${esc(a.replace(/_/g, " ").replace(/^./, c => c.toUpperCase()))}:</b> ${esc(b)}</p>`).join("")}</div>` : "";
+  $("#t-uebersicht").innerHTML = `
+    <h2>${esc(E.info.title)}</h2>
+    <p class="unter">${esc(E.tempo)} ${E.musikanteil != null ? `Hintergrund/Musik: ${E.musikanteil} % der Tonenergie.` : ""}</p>
+    ${E.analyse_art.includes("Gemini") ? "" : `<div class="hinweis">Lokale Analyse ohne KI: Zusammenfassung ist ein Auszug der wichtigsten Sätze, Bildarten sind automatisch geschätzt. Für ausführliche Zusammenfassung und echte Bildbeschreibungen den kostenlosen Gemini-Schlüssel unter <b>Verlauf &amp; Einstellungen</b> eintragen und neu analysieren.</div>`}
+    <div class="raster2">
+      <div class="karte"><h3>Zusammenfassung</h3><p class="prosa" style="margin:0">${esc(z.kurz || "–")}</p>
+        ${z.ausfuehrlich ? `<p class="prosa">${esc(z.ausfuehrlich)}</p>` : ""}
+        ${z.thema ? `<p style="margin:8px 0 0"><b>Thema:</b> ${esc(z.thema)}</p>` : ""}${z.zielgruppe ? `<p style="margin:4px 0 0"><b>Zielgruppe:</b> ${esc(z.zielgruppe)}</p>` : ""}</div>
+      <div class="karte"><h3>${E.analyse_art.includes("Gemini") ? "Kernaussagen" : "Wichtigste Sätze"}</h3><ul class="punkte">${(z.kernaussagen || []).map(x => `<li>${esc(x)}</li>`).join("") || "<li>–</li>"}</ul>
+        <p style="margin:10px 0 0"><b>Schlagwörter:</b> ${E.schlagwoerter.map(w => `<span class="kchip">${esc(w)}</span>`).join("")}</p></div>
+      <div class="karte"><h3>Was ist zu sehen?</h3><div class="balken">${balken}</div><div class="legende">${leg}</div>
+        <p class="muted" style="font-size:13px;margin:8px 0 0">${E.bild.schnitte.length} Schnitte/Folienwechsel, ${(E.bild.einblendungen || []).length} kleinere Einblendungen, mittlere Szenenlänge ${E.bild.mittlere_szenenlaenge} s.</p></div>
+      <div class="karte"><h3>Wer spricht?</h3><div class="balken">${sp}</div><div class="legende" style="flex-direction:column">${spLeg}</div>
+        <p class="muted" style="font-size:13px;margin:8px 0 0">${k.woerter} Wörter, ${k.lange_pausen} lange Pausen, ${k.fuellwoerter} Füllwörter (ähm/äh).</p></div>
+      ${abschnitt("Darstellung", E.darstellung)}${abschnitt("Dramaturgie", E.dramaturgie)}
+      ${E.titel_vorschlaege ? `<div class="karte"><h3>Titel-Vorschläge</h3><ul class="punkte">${E.titel_vorschlaege.map(t => `<li>${esc(t)}</li>`).join("")}</ul></div>` : ""}
+      ${E.verbesserungen ? `<div class="karte"><h3>Verbesserungsideen</h3><ul class="punkte">${E.verbesserungen.map(t => `<li>${esc(t)}</li>`).join("")}</ul></div>` : ""}
+    </div>`;
+}
+function zeigeStruktur() {
+  const zeilen = E.kapitel.map((c, i) => `<tr class="klick" data-i="${i}">
+      <td><span class="tc">${hms(c.start)}</span><br><span class="muted" style="font-size:12px">bis ${hms(c.ende)}</span></td>
+      <td><span class="phase">${esc(c.phase)}</span></td>
+      <td style="min-width:220px"><textarea class="titelfeld" rows="2" data-feld="titel" data-i="${i}" aria-label="Kapiteltitel">${esc(c.titel)}</textarea><div>${(c.schlagwoerter || []).map(w => `<span class="kchip">${esc(w)}</span>`).join("")}</div></td>
+      <td style="min-width:260px">${esc(c.inhalt || (c.text.length > 260 ? c.text.slice(0, 260) + " …" : c.text) || "–")}</td>
+      <td style="min-width:200px">${c.bild ? `<img class="daumen" src="${datei("bilder/" + c.bild)}" alt="Standbild">` : ""}<div style="font-size:13px;margin-top:4px">${esc(c.visuell || c.bildart)}</div></td>
+      <td class="mono" style="font-size:13px">${c.wpm} W/Min<br>${c.szenen} Szenen<br>${(c.sprecher || []).map(esc).join("<br>")}</td></tr>`).join("");
+  const hinweise = E.kapitel_hinweise?.length ? E.kapitel_hinweise.map(h => `<div class="hinweis">${esc(h)}</div>`).join("") : `<div class="hinweis ok">Kapitel erfüllen die YouTube-Regeln (Start 0:00, mindestens 3, jeweils mindestens 10 Sekunden).</div>`;
+  $("#t-struktur").innerHTML = `
+    <h2>Strukturplan</h2><p class="unter">Quelle der Kapitel: ${esc(E.kapitel_quelle)}. Zeile anklicken springt im Video an die Stelle. Titel sind bearbeitbar.</p>
+    ${hinweise}
+    <div class="tabelle"><table><thead><tr><th>Zeit</th><th>Phase</th><th>Kapitel</th><th>Inhalt</th><th>Bild / Darstellung</th><th>Tempo</th></tr></thead><tbody>${zeilen}</tbody></table></div>
+    <div class="karte" style="margin-top:14px"><h3>YouTube-Kapitel für die Beschreibung</h3>
+      <div class="ausgabe" id="ytKapitel">${esc(E.kapitel.map(c => hms(c.start) + " " + c.titel).join("\n"))}</div>
+      <div class="reihe" style="margin-top:8px"><button class="btn klein" id="kapKopieren">Kopieren</button><button class="btn klein" id="kapSpeichern">Titeländerungen übernehmen</button><button class="btn klein" id="kapMd">Strukturplan speichern (.md)</button></div></div>`;
+  $$("#t-struktur tr.klick").forEach(tr => tr.onclick = ev => { if (ev.target.tagName !== "TEXTAREA") springe(E.kapitel[+tr.dataset.i].start); });
+  $$("#t-struktur [data-feld]").forEach(inp => inp.oninput = () => { E.kapitel[+inp.dataset.i].titel = inp.value; $("#ytKapitel").textContent = E.kapitel.map(c => hms(c.start) + " " + c.titel).join("\n"); });
+  $("#kapKopieren").onclick = () => kopieren($("#ytKapitel").textContent);
+  $("#kapSpeichern").onclick = async () => { try { const r = await api("/api/kapitel", {ordner: AKTIV_ORDNER, kapitel: E.kapitel}); E.kapitel_hinweise = r.hinweise; zeigeSeitenleiste(); toast("Kapitel gespeichert."); } catch (e) { toast(esc(e.message), true); } };
+  $("#kapMd").onclick = () => speichern(["export/strukturplan.md"]);
+}
+let tFilter = "", tSprecher = "";
+function zeigeTranskript() {
+  const sprecher = E.sprecher.map(s => s.sprecher);
+  $("#t-transkript").innerHTML = `
+    <h2>Transkript</h2><p class="unter">${E.zeilen.length} Zeilen mit Zeitstempeln. Zeitstempel anklicken springt im Video dorthin.</p>
+    <div class="werkzeug">
+      <input type="search" id="tSuche" placeholder="Im Transkript suchen …" aria-label="Im Transkript suchen">
+      <select id="tSp" class="btn klein"><option value="">Alle Sprecher</option>${sprecher.map(s => `<option>${esc(s)}</option>`).join("")}</select>
+      <button class="btn klein" data-dl="export/transkript.srt">Untertitel .srt</button>
+      <button class="btn klein" data-dl="export/transkript.vtt">Untertitel .vtt</button>
+      <button class="btn klein" data-dl="export/transkript.txt">Text .txt</button>
+      ${sprecher.map(s => `<button class="btn klein" data-dl="export/transkript_${s.toLowerCase().replace(/ /g, "_")}.txt">Nur ${esc(s)}</button>`).join("")}
+      <button class="btn klein" id="tKopieren">Alles kopieren</button>
+    </div>
+    <div class="tabelle" id="tListe" style="max-height:70vh;overflow:auto"></div>`;
+  $("#tSuche").oninput = e => { tFilter = e.target.value.toLowerCase(); listeTranskript(); };
+  $("#tSp").onchange = e => { tSprecher = e.target.value; listeTranskript(); };
+  $$("#t-transkript [data-dl]").forEach(b => b.onclick = () => speichern([b.dataset.dl]));
+  $("#tKopieren").onclick = () => kopieren(E.zeilen.map(z => `[${hms(z.start)}] ${z.sprecher}: ${z.text}`).join("\n"));
+  listeTranskript();
+}
+function listeTranskript() {
+  const markiere = t => tFilter ? esc(t).replace(new RegExp(tFilter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), m => `<mark>${m}</mark>`) : esc(t);
+  const z = E.zeilen.filter(x => (!tSprecher || x.sprecher === tSprecher) && (!tFilter || x.text.toLowerCase().includes(tFilter)));
+  $("#tListe").innerHTML = z.map(x => `<div class="tz" data-s="${x.start}"><span class="tc" style="cursor:pointer">${hms(x.start)}–${hms(x.ende)}</span><span class="sp" style="color:${spFarbe(x.sprecher)}">${esc(x.sprecher)}</span><span class="tx">${markiere(x.text)}</span></div>`).join("") || `<div class="leer">Keine Treffer.</div>`;
+  $$("#tListe .tc").forEach(el => el.onclick = () => springe(+el.parentElement.dataset.s));
+}
+$("#player").ontimeupdate = () => {
+  if (!E || !$("#t-transkript").classList.contains("akt")) return;
+  const t = $("#player").currentTime;
+  const akt = E.zeilen.find(z => z.start <= t && t <= z.ende + 0.3);
+  $$("#tListe .tz").forEach(el => el.classList.toggle("aktiv", !!akt && +el.dataset.s === akt.start));
+};
+function zeigeBilder() {
+  $("#t-bilder").innerHTML = `
+    <h2>Bilder im Video</h2><p class="unter">${E.bild.szenen.length} Szenen mit je einem Standbild. ${E.analyse_art.includes("Gemini") ? "Beschreibungen von Gemini." : "Bildart automatisch geschätzt (ohne KI)."} Klick springt im Video zur Szene.</p>
+    <div class="werkzeug"><button class="btn klein" id="bAlle">Alle Standbilder speichern (ZIP)</button></div>
+    <div class="galerie">${E.bild.szenen.map(s => `<div class="bild" data-s="${s.start}"><img loading="lazy" src="${datei("bilder/" + s.bild)}" alt="Standbild ${s.nr}">
+      <div><span class="tc">${hms(s.start)}–${hms(s.ende)}</span> <span class="muted">· Szene ${s.nr}</span><b>${esc(s.bildtyp || s.bildart)}</b>
+      ${s.beschreibung ? `<span>${esc(s.beschreibung)}</span>` : ""}${s.text_im_bild ? `<div class="muted" style="padding:4px 0 0;font-size:12.5px">Text im Bild: ${esc(s.text_im_bild)}</div>` : ""}</div></div>`).join("")}</div>`;
+  $$("#t-bilder .bild").forEach(el => el.onclick = () => springe(+el.dataset.s));
+  $("#bAlle").onclick = () => speichern(E.bild.szenen.map(s => "bilder/" + s.bild), {zip: true, praefix: "Standbilder " + AKTIV_ORDNER});
+}
+function zeigeAudio() {
+  const karten = Object.entries(E.audio).map(([name, pfad]) => `<div class="karte audio"><h3>${esc(name)}</h3>
+      <audio controls preload="metadata" src="${datei(pfad)}"></audio>
+      <div class="reihe"><button class="btn klein p" data-a="${esc(pfad)}" data-f="original">Speichern (.wav)</button><button class="btn klein" data-a="${esc(pfad)}" data-f="mp3">Speichern (.mp3)</button></div></div>`).join("");
+  const alle = Object.values(E.audio);
+  $("#t-audio").innerHTML = `
+    <h2>Audio</h2><p class="unter">Original, getrennte Spuren und jede Stimme einzeln. Ein Klick speichert, der Zielordner wird jedes Mal abgefragt.</p>
+    ${E.musikanteil == null ? `<div class="hinweis">Stimme und Musik wurden bei dieser Analyse nicht getrennt. Option oben einschalten und neu analysieren.</div>` : ""}
+    <div class="werkzeug"><button class="btn klein" id="aAlleWav">Alle als .wav speichern</button><button class="btn klein" id="aAlleMp3">Alle als .mp3 speichern</button></div>
+    <div class="audios">${karten}</div>`;
+  $$("#t-audio [data-a]").forEach(b => b.onclick = () => speichern([b.dataset.a], {format: b.dataset.f}));
+  $("#aAlleWav").onclick = () => speichern(alle, {format: "original"});
+  $("#aAlleMp3").onclick = () => speichern(alle, {format: "mp3"});
+}
+function zeigeExport() {
+  const liste = Object.entries(E.exporte);
+  const namen = {"transkript.srt":"Untertitel (SRT) mit Sprechern","transkript.vtt":"Untertitel (VTT) mit Sprechern","transkript.txt":"Transkript als Text mit Zeitstempeln",
+    "strukturplan.md":"Strukturplan + Zusammenfassung + Bilder (Markdown)","upload_paket.json":"Upload-Paket für den Automatischen YouTube-Upload","ergebnis.json":"Alle Daten der Analyse (JSON)"};
+  $("#t-export").innerHTML = `
+    <h2>Export</h2><p class="unter">Jede Datei einzeln oder alles zusammen speichern. Der Zielordner wird jedes Mal abgefragt.</p>
+    <div class="werkzeug"><button class="btn p" id="xAlles">Alles als ZIP speichern</button><button class="btn" id="xAllesMitAudio">Alles inkl. Audio und Bilder als ZIP</button><button class="btn" id="xOrdner">Arbeitsordner öffnen</button></div>
+    <div class="tabelle"><table><thead><tr><th>Datei</th><th>Inhalt</th><th></th></tr></thead><tbody>
+      ${liste.map(([n, p]) => `<tr><td class="mono">${esc(n)}</td><td>${esc(namen[n] || (n.startsWith("transkript_") ? "Nur die Sätze von " + n.slice(11, -4).replace(/_/g, " ").replace(/^./, c => c.toUpperCase()) : ""))}</td><td><button class="btn klein" data-x="${esc(p)}">Speichern</button></td></tr>`).join("")}
+      <tr><td class="mono">${esc(E.video_datei)}</td><td>Das heruntergeladene Video</td><td><button class="btn klein" data-x="${esc(E.video_datei)}">Speichern</button></td></tr>
+    </tbody></table></div>`;
+  $$("#t-export [data-x]").forEach(b => b.onclick = () => speichern([b.dataset.x]));
+  $("#xAlles").onclick = () => speichern(liste.map(x => x[1]), {zip: true, praefix: "Analyse " + AKTIV_ORDNER});
+  $("#xAllesMitAudio").onclick = () => speichern([...liste.map(x => x[1]), ...Object.values(E.audio), ...E.bild.szenen.map(s => "bilder/" + s.bild)], {zip: true, praefix: "Analyse komplett " + AKTIV_ORDNER});
+  $("#xOrdner").onclick = async () => { try { const r = await api("/api/ordner_oeffnen", {ordner: AKTIV_ORDNER}); toast("Ordner: " + esc(r.pfad)); } catch (e) { toast(esc(e.message), true); } };
+}
+
+/* ---------- Cartesia ---------- */
+const BEISPIEL = `Wir haben 20 Arbeitsplätze, und die hängen alle an einem verwaltbaren Switch mit 48 Anschlüssen. Jeder Platz kriegt 1 Gbit/s. Das NAS kriegt 10 Gbit/s. Verkabelt wird mit Cat6A.
+
+Die Arbeitsplätze sitzen im VLAN 10, im Netz 192.168.10.0/27. Das gibt uns 30 nutzbare Adressen, und die verteilt der DHCP-Server von ganz allein.
+
+Alle Projekte liegen zentral auf dem NAS: 6 Festplatten mit je 12 TB im RAID 6. Aber ein RAID ist kein Backup!`;
+$("#cBeispiel").onclick = () => $("#cText").value = BEISPIEL;
+$("#cLeeren").onclick = () => { $("#cText").value = ""; $("#cErgebnis").innerHTML = ""; };
+$("#cAusTranskript").onclick = () => {
+  if (!E) return toast("Erst ein Video analysieren oder aus dem Verlauf öffnen.", true);
+  let txt = "", letzter = null;
+  E.zeilen.forEach((z, i) => { const neu = letzter && (z.start - letzter.ende > 1.5 || z.sprecher !== letzter.sprecher); txt += (neu ? "\n\n" : (i ? " " : "")) + z.text; letzter = z; });
+  $("#cText").value = txt.replace(/\b(ähm|äh|ehm)\b,?\s*/gi, ""); toast("Transkript übernommen (alte Füllwörter entfernt).");
+};
+async function cartesiaBauen() {
+  const text = $("#cText").value.trim(); if (!text) return toast("Bitte zuerst Text einfügen.", true);
+  try {
+    const r = await api("/api/cartesia", {text, optionen: {satzpause: $("#cSatz").value, absatzpause: $("#cAbsatz").value, doppelpunktpause: $("#cDoppel").value,
+      fueller: $("#cFueller").value, vorredner: $("#cVor").value, nachredner: $("#cNach").value, aussprache: $("#cAussprache").value, seed,
+      aehm_pause: $("#cAehm").value, modell: $("#cModell").value, stimme_id: $("#cStimme").value, tempo: $("#cTempo").value}});
+    const bunt = esc(r.text).replace(/&lt;break time=&quot;(\d+)ms&quot;\/&gt;/g, '<span class="br">&lt;break time="$1ms"/&gt;</span>').replace(/, ähm,/g, '<span class="fl">, ähm,</span>');
+    $("#cErgebnis").innerHTML = `<div class="karte"><h3>Fertiger Cartesia-Text</h3>
+      <p class="muted" style="margin:0 0 8px;font-size:13.5px">${r.woerter} Wörter · ${r.pausen} Pausen · ${r.zeichen} Zeichen · geschätzte Sprechdauer <span class="tc">${hms(r.sekunden)}</span></p>
+      <div class="ausgabe">${bunt}</div>
+      <div class="reihe" style="margin-top:8px"><button class="btn p klein" id="cKopieren">Text kopieren</button><button class="btn klein" id="cSpeichern">Als .txt speichern</button></div></div>
+      <div class="karte" style="margin-top:12px"><h3>Befehl für die Cartesia-Schnittstelle</h3>
+      <p class="muted" style="margin:0 0 8px;font-size:13.5px">Für die Cartesia-Webseite reicht der Text oben. Für die Schnittstelle: Anfrage als <span class="mono">cartesia_anfrage.json</span> speichern, im selben Ordner die Eingabeaufforderung öffnen, einmal <span class="mono">set CARTESIA_API_KEY=sk_car_…</span> eingeben und dann den Befehl einfügen. Das Programm schickt selbst nichts an Cartesia.</p>
+      <pre class="ausgabe mono" style="white-space:pre-wrap">${esc(r.api.befehl)}</pre>
+      <details style="margin-top:8px"><summary class="muted">Anfrage ansehen (JSON)</summary><pre class="ausgabe mono" style="white-space:pre-wrap;max-height:260px;overflow:auto">${esc(r.api.json)}</pre></details>
+      <div class="reihe" style="margin-top:8px"><button class="btn p klein" id="cBefehl">Befehl kopieren</button><button class="btn klein" id="cJson">Anfrage speichern (.json)</button></div></div>`;
+    $("#cBefehl").onclick = () => kopieren(r.api.befehl);
+    $("#cJson").onclick = () => textSpeichern("cartesia_anfrage.json", r.api.json);
+    $("#cKopieren").onclick = () => kopieren(r.text);
+    $("#cSpeichern").onclick = () => textSpeichern("cartesia_text.txt", r.text);
+  } catch (e) { toast(esc(e.message), true); }
+}
+$("#cBauen").onclick = cartesiaBauen;
+$("#cNeuMischen").onclick = () => { seed = Math.floor(Math.random() * 1e6); cartesiaBauen(); };
+
+/* ---------- Verlauf & Einstellungen ---------- */
+async function ladeVerlauf() {
+  try {
+    const v = await api("/api/verlauf");
+    $("#verlaufListe").innerHTML = v.length ? v.map(x => `<div class="verlauf-zeile"><span><b>${esc(x.titel)}</b><br><span class="muted" style="font-size:13px">${hms(x.dauer)} · ${esc(x.art)} · ${x.mb} MB</span></span>
+      <span class="reihe"><button class="btn klein p" data-o="${esc(x.ordner)}">Öffnen</button><button class="btn klein" data-l="${esc(x.ordner)}">Löschen</button></span></div>`).join("") : `<p class="muted">Noch keine Analysen.</p>`;
+    const summe = v.reduce((a, x) => a + x.mb, 0);
+    $("#verlaufSumme").textContent = v.length ? `Belegt zusammen: ${summe.toFixed(1).replace(".", ",")} MB` : "";
+    $("#allesLoeschen").hidden = !v.length; $("#allesLoeschen").dataset.sicher = ""; $("#allesLoeschen").textContent = "Alle Analysen löschen";
+    $$("#verlaufListe [data-o]").forEach(b => b.onclick = () => oeffnen(b.dataset.o));
+    $$("#verlaufListe [data-l]").forEach(b => b.onclick = async () => {
+      if (b.dataset.sicher !== "1") { b.dataset.sicher = "1"; b.textContent = "Wirklich löschen?"; b.style.borderColor = "var(--err)"; return; }
+      try { await api("/api/loeschen", {ordner: b.dataset.l}); toast("Analyse vom PC gelöscht."); if (AKTIV_ORDNER === b.dataset.l) location.reload(); else ladeVerlauf(); }
+      catch (e) { toast(esc(e.message), true); }
+    });
+  } catch (e) { toast(esc(e.message), true); }
+}
+$("#allesLoeschen").onclick = async () => {
+  const b = $("#allesLoeschen");
+  if (b.dataset.sicher !== "1") { b.dataset.sicher = "1"; b.textContent = "Wirklich alle löschen?"; b.style.borderColor = "var(--err)"; return; }
+  try { const r = await api("/api/alles_loeschen", {}); toast(`${r.geloescht} Analyse(n) vom PC gelöscht.`); if (AKTIV_ORDNER) location.reload(); else ladeVerlauf(); }
+  catch (e) { toast(esc(e.message), true); }
+};
+async function ladeEinstellungen() {
+  try {
+    const e = await api("/api/einstellungen");
+    $("#eSchluessel").value = e.gemini_schluessel || ""; if (e.gemini_modell) $("#eModell").value = e.gemini_modell; $("#eBrowser").value = e.browser_cookies || "";
+    $("#eVideo").checked = e.gemini_video !== false;
+    if (e.cartesia_modell) $("#cModell").value = e.cartesia_modell; if (e.cartesia_stimme) $("#cStimme").value = e.cartesia_stimme;
+    $("#geminiChip").textContent = e.gemini_gesetzt ? "Gemini: Schlüssel gesetzt" : "Gemini: kein Schlüssel (nur lokal)";
+    $("#geminiChip").classList.toggle("an", !!e.gemini_gesetzt);
+  } catch {}
+}
+$("#eSpeichern").onclick = async () => {
+  try { await api("/api/einstellungen", {gemini_schluessel: $("#eSchluessel").value, gemini_modell: $("#eModell").value, browser_cookies: $("#eBrowser").value, gemini_video: $("#eVideo").checked}); toast("Einstellungen gespeichert."); ladeEinstellungen(); }
+  catch (e) { toast(esc(e.message), true); }
+};
+
+/* ---------- Start ---------- */
+(async () => {
+  ladeEinstellungen();
+  try { const s = await api("/api/status"); if (s.laeuft) { $("#startHilfe").hidden = true; beobachten(); } } catch {}
+})();
+</script>
+</body>
+</html>
